@@ -312,6 +312,15 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 
     if (isClean) {
       document.body.classList.add('clean-mode');
+      // Cara agresif: Hapus elemen dari layar agar tidak bisa muncul lagi
+      const removeEl = (sel) => {
+        const el = document.querySelector(sel);
+        if (el) el.remove();
+      };
+      removeEl('.topbar');
+      removeEl('.bottombar');
+      removeEl('.stats-panel');
+      removeEl('#debugLog');
     }
 
     const token = urlParams.get('token') || '';
