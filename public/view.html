@@ -157,7 +157,6 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       <span id="connText">Disconnected</span>
     </div>
     <div class="bottom-controls">
-      <button class="ctrl-btn" id="btnFit" title="Toggle video fit mode">🔲 Contain</button>
       <button class="ctrl-btn" id="btnMute">🔊 Unmuted</button>
       <button class="ctrl-btn" id="btnPip">📌 PiP</button>
     </div>
@@ -535,13 +534,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(()=>{}); $('app').classList.add('fullscreen'); }
     else { document.exitFullscreen(); $('app').classList.remove('fullscreen'); }
   };
-  // Fit mode toggle
-  let fitMode = 'contain';
-  $('btnFit').onclick = () => {
-    fitMode = fitMode === 'contain' ? 'cover' : 'contain';
-    $('remoteVideo').style.objectFit = fitMode;
-    $('btnFit').textContent = fitMode === 'contain' ? '🔲 Contain' : '🔳 Cover';
-  };
+
 
   $('btnMute').onclick = () => {
     isMuted = !isMuted;
