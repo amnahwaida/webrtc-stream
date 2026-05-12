@@ -307,7 +307,8 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       socket = new WebSocket(wsUrl);
     } catch(e) {
       dbg('WebSocket create error: ' + e.message);
-      scheduleReconnect(myGen);
+      setConn('off', 'SSL/Connection Error');
+      toast('❌ Connection blocked. Please "Trust" the certificate in your browser.', 10000);
       return;
     }
 
