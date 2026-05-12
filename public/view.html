@@ -283,7 +283,9 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = location.host;
     const urlParams = new URLSearchParams(window.location.search);
-    let roomId = urlParams.get('room') || 'default';
+    
+    // Gunakan roomId global dan sinkronkan dengan URL atau Input
+    roomId = urlParams.get('room') || $('cfgRoom').value || 'cam1';
     const isClean = urlParams.get('clean') === 'true';
 
     if (isClean) {
@@ -291,7 +293,6 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       $('topbar').style.display = 'none';
       $('footer').style.display = 'none';
       $('debugLog').style.display = 'none';
-      // Kita biarkan statsPanel terlihat sedikit agar tahu status koneksinya
       $('statsPanel').style.opacity = '0.5'; 
     }
 
