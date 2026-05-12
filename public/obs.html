@@ -89,8 +89,8 @@
 
     pc.ontrack = (e) => {
       document.getElementById('video').srcObject = e.streams[0] || new MediaStream([e.track]);
-      // Optimasi Latensi: Kurangi Jitter Buffer
-      if (e.receiver && e.track.kind === 'video') {
+      // Optimasi Latensi: Kurangi Jitter Buffer (video & audio)
+      if (e.receiver) {
         try {
           e.receiver.playoutDelayHint = 0;
           e.receiver.jitterBufferTarget = 0;

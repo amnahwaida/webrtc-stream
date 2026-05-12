@@ -490,7 +490,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       startStats();
 
       // ── Optimasi Latensi: Kurangi Jitter Buffer ──
-      if (e.receiver && e.track.kind === 'video') {
+      if (e.receiver) {
         try {
           e.receiver.playoutDelayHint = 0;       // Minimum playout delay
           e.receiver.jitterBufferTarget = 0;     // Minimum jitter buffer

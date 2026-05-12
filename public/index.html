@@ -335,7 +335,15 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
         frameRate: { ideal: fps },
         facingMode: facingMode
       },
-      audio: audioEnabled
+      // Optimasi Audio: Matikan processing yang menambah delay
+      audio: audioEnabled ? {
+        echoCancellation: false,    // Tidak perlu echo cancel di streaming 1 arah
+        noiseSuppression: false,    // Matikan noise suppression (tambah ~40ms delay)
+        autoGainControl: false,     // Matikan auto gain (tambah ~20ms delay)
+        channelCount: 1,            // Mono lebih ringan
+        sampleRate: 48000,          // Sample rate optimal untuk Opus
+        latency: 0                  // Minta latency serendah mungkin
+      } : false
     };
     if (selCamera.value && selCamera.value !== 'Loading...') {
       constraints.video.deviceId = { exact: selCamera.value };
@@ -345,9 +353,12 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     try {
       if (localStream) localStream.getTracks().forEach(t => t.stop());
       localStream = await navigator.mediaDevices.getUserMedia(constraints);
-      // Optimasi latensi: beritahu browser bahwa ini video real-time
+      // Optimasi latensi: beritahu browser bahwa ini real-time
       localStream.getVideoTracks().forEach(t => {
         t.contentHint = 'motion';
+      });
+      localStream.getAudioTracks().forEach(t => {
+        t.contentHint = 'speech';  // Optimasi codec untuk suara manusia
       });
       localVideo.srcObject = localStream;
       placeholder.classList.add('hidden');
@@ -481,13 +492,23 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
         const params = sender.getParameters();
         if (!params.encodings) params.encodings = [{}];
         params.encodings.forEach(enc => {
-          enc.maxBitrate = 2500000;           // 2.5 Mbps maks (cukup untuk 720p)
-          enc.maxFramerate = 30;               // Batasi FPS
-          enc.networkPriority = 'high';        // Prioritas tinggi di jaringan
+          enc.maxBitrate = 2500000;
+          enc.maxFramerate = 30;
+          enc.networkPriority = 'high';
           enc.priority = 'high';
         });
-        // Jangan turunkan FPS, turunkan resolusi jika bandwidth terbatas
         params.degradationPreference = 'maintain-framerate';
+        sender.setParameters(params).catch(() => {});
+      }
+      // Optimasi Audio Encoding
+      if (sender.track?.kind === 'audio') {
+        const params = sender.getParameters();
+        if (!params.encodings) params.encodings = [{}];
+        params.encodings.forEach(enc => {
+          enc.maxBitrate = 128000;       // 128kbps Opus (kualitas tinggi)
+          enc.networkPriority = 'high';
+          enc.priority = 'high';
+        });
         sender.setParameters(params).catch(() => {});
       }
     });
