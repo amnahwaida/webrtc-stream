@@ -182,7 +182,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       <span id="connText">Disconnected</span>
     </div>
     <div class="bottom-controls">
-      <button class="ctrl-btn" id="btnMute">🔊 Unmuted</button>
+      <button class="ctrl-btn" id="btnMute">🔇 Klik Unmute</button>
       <button class="ctrl-btn" id="btnPip">📌 PiP</button>
     </div>
   </div>
@@ -228,7 +228,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   let reconnectAttempts = 0;
   let generation = 0; // Connection generation counter
   let pendingCandidates = [];
-  let isMuted = false;
+  let isMuted = true; // Dimulai muted agar autoplay jalan
 
   // ICE/STUN/TURN configuration - local coturn server (fully offline LAN)
   const stunHost = location.hostname;
@@ -680,28 +680,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 
   // ── Start ──
   // Chrome Autoplay Policy: video HARUS muted agar autoplay jalan
-  // Setelah user klik apapun di halaman, baru unmute
   $('remoteVideo').muted = true;
-
-  // Auto-unmute setelah interaksi pertama (klik di mana saja)
-  function autoUnmute() {
-    if (!$('remoteVideo').muted) return;
-    $('remoteVideo').muted = false;
-    isMuted = false;
-    $('btnMute').textContent = '🔊 Unmuted';
-    toast('🔊 Audio aktif');
-    document.removeEventListener('click', autoUnmute);
-    document.removeEventListener('touchstart', autoUnmute);
-  }
-  
-  const isCleanMode = new URLSearchParams(location.search).get('clean') === 'true';
-  if (!isCleanMode) {
-    // Untuk viewer biasa, unmute otomatis setelah klik pertama
-    document.addEventListener('click', autoUnmute);
-    document.addEventListener('touchstart', autoUnmute);
-    toast('🔇 Klik di mana saja untuk mengaktifkan audio');
-  }
-
   connect();
 })();
 </script>
