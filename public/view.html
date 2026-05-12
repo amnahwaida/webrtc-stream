@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebRTC Viewer - Live Stream</title>
+<title>WebRTC Viewer - Live Stream v7</title>
 <meta name="description" content="WebRTC low-latency stream viewer for LAN">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -165,15 +165,17 @@ body.clean-mode #remoteVideo {
       <button class="icon-btn" id="btnFullscreen" title="Fullscreen">⛶</button>
     </div>
   </div>
-  <div class="video-area">
-    <video id="remoteVideo" autoplay playsinline></video>
-    <!-- Overlay unmute: muncul saat stream mulai -->
-    <div id="unmuteOverlay" class="unmute-overlay hidden">
-      <div class="unmute-btn">
+  <div class="video-area" id="videoArea">
+    <video id="remoteVideo" autoplay playsinline muted></video>
+    <!-- Overlay unmute -->
+    <div id="unmuteOverlay" style="position:absolute;inset:0;z-index:15;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);cursor:pointer">
+      <div style="text-align:center;color:#fff;padding:24px 40px;border-radius:16px;background:rgba(108,92,231,0.8)">
         <span style="font-size:48px">🔇</span>
-        <p>Tap untuk aktifkan suara</p>
+        <p style="margin-top:8px;font-size:16px;font-weight:600">Klik untuk aktifkan suara</p>
       </div>
     </div>
+    <!-- Version indicator -->
+    <div id="versionTag" style="position:absolute;bottom:4px;right:4px;font-size:9px;color:rgba(255,255,255,0.3);z-index:5">v7</div>
     <div class="waiting" id="waiting">
       <div class="spinner"></div>
       <h2>Waiting for stream...</h2>
@@ -503,10 +505,11 @@ body.clean-mode #remoteVideo {
       toast('🎬 Stream started!');
       startStats();
 
-      // Tampilkan overlay unmute jika video masih muted (kecuali di mode OBS/clean)
-      const isObs = new URLSearchParams(location.search).get('clean') === 'true';
+      // Tampilkan overlay unmute (menggunakan inline style, bukan CSS class)
+      var isObs = new URLSearchParams(location.search).get('clean') === 'true';
       if ($('remoteVideo').muted && !isObs) {
-        $('unmuteOverlay').classList.remove('hidden');
+        $('unmuteOverlay').style.display = 'flex';
+        dbg('UNMUTE OVERLAY SHOWN');
       }
 
       // Optimasi Latensi: Kurangi Jitter Buffer
@@ -638,22 +641,30 @@ body.clean-mode #remoteVideo {
     else { document.exitFullscreen(); $('app').classList.remove('fullscreen'); }
   };
 
-  // ── Unmute Overlay ──
+  // ── Unmute ──
   function doUnmute() {
+    dbg('UNMUTE CALLED');
     $('remoteVideo').muted = false;
     isMuted = false;
     $('btnMute').textContent = '🔊 Unmuted';
-    $('unmuteOverlay').classList.add('hidden');
+    $('unmuteOverlay').style.display = 'none';
     toast('🔊 Audio aktif');
   }
 
+  // Klik overlay → unmute
   $('unmuteOverlay').onclick = doUnmute;
+  // Klik video → unmute
+  $('remoteVideo').onclick = doUnmute;
+  // Klik area video → unmute
+  $('videoArea').onclick = function(e) {
+    if ($('remoteVideo').muted) doUnmute();
+  };
 
   $('btnMute').onclick = () => {
     isMuted = !isMuted;
     $('remoteVideo').muted = isMuted;
     $('btnMute').textContent = isMuted ? '🔇 Muted' : '🔊 Unmuted';
-    if (!isMuted) $('unmuteOverlay').classList.add('hidden');
+    if (!isMuted) $('unmuteOverlay').style.display = 'none';
   };
   $('btnPip').onclick = async () => {
     try {
