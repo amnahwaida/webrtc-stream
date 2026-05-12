@@ -282,9 +282,22 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = location.host;
-    const params = new URLSearchParams(location.search);
-    const token = params.get('token') || '';
+    const urlParams = new URLSearchParams(window.location.search);
+    let roomId = urlParams.get('room') || 'default';
+    const isClean = urlParams.get('clean') === 'true';
+
+    if (isClean) {
+      document.body.classList.add('clean-mode');
+      $('topbar').style.display = 'none';
+      $('footer').style.display = 'none';
+      $('debugLog').style.display = 'none';
+      $('statsPanel').style.display = 'none';
+    }
+
+    const token = urlParams.get('token') || '';
     const wsUrl = `${proto}//${host}/ws${token ? '?token=' + token : ''}`;
+
+    $('cfgRoom').value = roomId;
 
     dbg(`Opening WS to ${wsUrl}`);
 
