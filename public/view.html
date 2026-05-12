@@ -126,6 +126,12 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       height: 100vh !important;
       max-width: 100% !important;
     }
+    body.clean-mode .topbar,
+    body.clean-mode .bottombar,
+    body.clean-mode .stats-panel,
+    body.clean-mode #debugLog {
+      display: none !important;
+    }
     body.clean-mode #remoteVideo {
       border-radius: 0 !important;
       box-shadow: none !important;
