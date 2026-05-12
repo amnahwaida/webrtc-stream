@@ -343,6 +343,10 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     try {
       if (localStream) localStream.getTracks().forEach(t => t.stop());
       localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Optimasi latensi: beritahu browser bahwa ini video real-time
+      localStream.getVideoTracks().forEach(t => {
+        t.contentHint = 'motion';
+      });
       localVideo.srcObject = localStream;
       placeholder.classList.add('hidden');
       statsOverlay.style.display = '';
@@ -455,14 +459,34 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     peerConnections.set(viewerId, pc);
     if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-    // Prefer H.264
+    // Prefer H.264 (Baseline profile = tanpa B-frames = latensi lebih rendah)
     const transceivers = pc.getTransceivers();
     transceivers.forEach(t => {
       if (t.sender?.track?.kind === 'video') {
         const codecs = RTCRtpSender.getCapabilities('video')?.codecs || [];
-        const h264 = codecs.filter(c => c.mimeType === 'video/H264');
+        // Prioritaskan H264 Baseline (42e0) untuk latensi terendah
+        const h264Baseline = codecs.filter(c => c.mimeType === 'video/H264' && (c.sdpFmtpLine || '').includes('42e0'));
+        const h264Other = codecs.filter(c => c.mimeType === 'video/H264' && !(c.sdpFmtpLine || '').includes('42e0'));
         const others = codecs.filter(c => c.mimeType !== 'video/H264');
-        if (h264.length) try { t.setCodecPreferences([...h264, ...others]); } catch(e) {}
+        const preferred = [...h264Baseline, ...h264Other, ...others];
+        if (preferred.length) try { t.setCodecPreferences(preferred); } catch(e) {}
+      }
+    });
+
+    // ── Optimasi Latensi: Encoding Parameters ──
+    pc.getSenders().forEach(sender => {
+      if (sender.track?.kind === 'video') {
+        const params = sender.getParameters();
+        if (!params.encodings) params.encodings = [{}];
+        params.encodings.forEach(enc => {
+          enc.maxBitrate = 2500000;           // 2.5 Mbps maks (cukup untuk 720p)
+          enc.maxFramerate = 30;               // Batasi FPS
+          enc.networkPriority = 'high';        // Prioritas tinggi di jaringan
+          enc.priority = 'high';
+        });
+        // Jangan turunkan FPS, turunkan resolusi jika bandwidth terbatas
+        params.degradationPreference = 'maintain-framerate';
+        sender.setParameters(params).catch(() => {});
       }
     });
 
@@ -479,7 +503,6 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       if (s === 'connected' || s === 'completed') {
         // Connection is healthy
       } else if (s === 'disconnected') {
-        // Grace period - disconnected is often temporary
         disconnectTimer = setTimeout(() => {
           if (pc.iceConnectionState === 'disconnected') {
             console.log(`[ICE] ${viewerId}: still disconnected after grace period, attempting ICE restart`);

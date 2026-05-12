@@ -486,6 +486,14 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       setConn('ok', 'Streaming');
       toast('🎬 Stream started!');
       startStats();
+
+      // ── Optimasi Latensi: Kurangi Jitter Buffer ──
+      if (e.receiver && e.track.kind === 'video') {
+        try {
+          e.receiver.playoutDelayHint = 0;       // Minimum playout delay
+          e.receiver.jitterBufferTarget = 0;     // Minimum jitter buffer
+        } catch(err) { dbg('Jitter buffer hint not supported'); }
+      }
     };
 
     pc.onicecandidate = (e) => {
