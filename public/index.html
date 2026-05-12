@@ -334,9 +334,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
         width: { ideal: w }, height: { ideal: h },
         frameRate: { ideal: fps },
         facingMode: facingMode,
-        // Optimasi video driver: matikan buffering tingkat rendah
+        // Optimasi video driver
         googVideoBadFramesPacketsWindow: 0,
-        googLeakyBucket: false
+        googLeakyBucket: false,
+        googCpuOveruseDetection: false // Jangan throttle meskipun HP panas
       },
       // SELALU tangkap audio, tapi mulai dalam keadaan mati
       audio: {
@@ -351,7 +352,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
         googAutoGainControl: false,
         googNoiseSuppression: false,
         googHighpassFilter: false,
-        googTypingNoiseDetection: false
+        googTypingNoiseDetection: false,
+        googDscp: true // Prioritas paket di jaringan
+      }
       }
     };
     if (selCamera.value && selCamera.value !== 'Loading...') {
@@ -588,7 +591,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
       }
     };
 
-    pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })
+    pc.createOffer({ 
+      offerToReceiveAudio: false, 
+      offerToReceiveVideo: false,
+      voiceActivityDetection: false // Matikan VAD untuk hemat processing
+    })
       .then(offer => {
         // Optimasi SDP sebelum kirim
         offer.sdp = optimizeSdp(offer.sdp);
