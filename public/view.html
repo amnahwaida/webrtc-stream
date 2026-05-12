@@ -255,7 +255,7 @@ body.clean-mode #remoteVideo {
       { urls: `stun:${stunHost}:3478` },
       { urls: `turn:${stunHost}:3478`, username: 'webrtc', credential: 'webrtc123' }
     ],
-    iceTransportPolicy: 'host',         // Hanya cari jalur lokal (lebih cepat di LAN)
+    iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
     iceCandidatePoolSize: 2  // Pre-allocate ICE candidates untuk handshake lebih cepat
