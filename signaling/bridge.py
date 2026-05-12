@@ -39,41 +39,41 @@ class STBCameraBridge:
             return
 
         # 2. Connect ke Signaling Server
-        # Gunakan WSS jika URL menggunakan HTTPS, dan abaikan SSL check untuk self-signed cert
         is_https = SIGNALING_URL.startswith("https")
         ws_url = f"{SIGNALING_URL.replace('http', 'ws')}/ws"
         
-        # Abaikan SSL verification
+        # Abaikan SSL verification untuk self-signed cert
         ssl_context = False if is_https else None
-        
         connector = aiohttp.TCPConnector(ssl=ssl_context)
+        
         async with aiohttp.ClientSession(connector=connector) as session:
             try:
                 async with session.ws_connect(ws_url) as ws:
                     self.ws = ws
                     logger.info(f"Terhubung ke Signaling: {ws_url}")
 
-                # Join Room
-                await ws.send_json({
-                    "type": "join",
-                    "roomId": ROOM_ID,
-                    "clientId": CLIENT_ID,
-                    "role": "publisher"
-                })
+                    # Join Room
+                    await ws.send_json({
+                        "type": "join",
+                        "roomId": ROOM_ID,
+                        "clientId": CLIENT_ID,
+                        "role": "publisher"
+                    })
 
-                async for msg in ws:
-                    if msg.type == aiohttp.WSMsgType.TEXT:
-                        data = json.loads(msg.data)
-                        await self.handle_message(data)
-                    elif msg.type == aiohttp.WSMsgType.CLOSED:
-                        break
+                    async for msg in ws:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            data = json.loads(msg.data)
+                            await self.handle_message(data)
+                        elif msg.type == aiohttp.WSMsgType.CLOSED:
+                            break
+            except Exception as e:
+                logger.error(f"Koneksi terputus atau gagal: {e}")
 
     async def handle_message(self, msg):
         mtype = msg.get("type")
         
         if mtype == "joined":
             logger.info(f"Berhasil join room: {ROOM_ID}")
-            # Jika ada viewer yang sudah menunggu, buatkan koneksi
             for peer in msg.get("peers", []):
                 if peer["role"] == "viewer":
                     await self.create_pc(peer["clientId"])
@@ -88,34 +88,28 @@ class STBCameraBridge:
                 await self.pc.setRemoteDescription(
                     RTCSessionDescription(sdp=msg["sdp"], type="answer")
                 )
-                logger.info("Remote description set (answer)")
 
         elif mtype == "candidate":
             if self.pc:
-                from aiortc import RTCIceCandidate
-                cand = msg["candidate"]["candidate"].split(" ")
-                # Simple candidate handling
-                await self.pc.addIceCandidate(None) # Biar ICE jalan otomatis
+                await self.pc.addIceCandidate(None)
 
     async def create_pc(self, viewer_id):
-        self.pc = RTCPeerConnection()
+        pc = RTCPeerConnection()
+        self.pc = pc
         
-        # Tambahkan track video dari webcam
         if self.player and self.player.video:
-            self.pc.addTrack(self.player.video)
+            pc.addTrack(self.player.video)
 
-        # Buat Offer
-        offer = await self.pc.createOffer()
-        await self.pc.setLocalDescription(offer)
+        offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
 
         await self.ws.send_json({
             "type": "offer",
             "roomId": ROOM_ID,
-            "sdp": self.pc.localDescription.sdp,
+            "sdp": pc.localDescription.sdp,
             "senderId": CLIENT_ID,
             "targetId": viewer_id
         })
-        logger.info(f"Offer dikirim ke {viewer_id}")
 
 if __name__ == "__main__":
     bridge = STBCameraBridge()
