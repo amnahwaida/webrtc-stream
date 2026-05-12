@@ -282,6 +282,10 @@ wss.on('connection', (ws, req) => {
   let currentClientId = null;
 
   log('info', 'WebSocket connected', { ip: req.socket.remoteAddress });
+  
+  // Optimasi Latensi: Matikan Nagle's Algorithm (TCP NoDelay)
+  // Pesan signaling (SDP/ICE) akan dikirim instan tanpa buffering
+  req.socket.setNoDelay(true);
 
   // Keepalive ping/pong
   ws.isAlive = true;

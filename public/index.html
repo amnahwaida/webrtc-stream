@@ -473,11 +473,13 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   // ── WebRTC ──
   // SDP munging: optimasi Opus untuk latensi rendah
   function optimizeSdp(sdp) {
-    // Opus: aktifkan DTX, CBR, batasi bitrate, mono
+    // Opus: aktifkan DTX, CBR, batasi bitrate, mono, ptime=10 (paket lebih kecil = delay lebih rendah)
     sdp = sdp.replace(
       /(a=fmtp:\d+ [^\r\n]*useinbandfec=1)/g,
-      '$1;usedtx=1;stereo=0;sprop-stereo=0;cbr=1;maxaveragebitrate=64000;maxplaybackrate=48000'
+      '$1;usedtx=1;stereo=0;sprop-stereo=0;cbr=1;maxaveragebitrate=64000;maxplaybackrate=48000;ptime=10'
     );
+    // Tambahkan minimal bitrate untuk menjaga stabilitas (x-google-min-bitrate)
+    sdp = sdp.replace(/a=mid:video\r\n/g, 'a=mid:video\r\na=fmtp:96 x-google-min-bitrate=1000\r\n');
     return sdp;
   }
 
