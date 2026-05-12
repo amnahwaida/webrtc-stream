@@ -503,8 +503,9 @@ body.clean-mode #remoteVideo {
       toast('🎬 Stream started!');
       startStats();
 
-      // Tampilkan overlay unmute jika audio ada dan masih muted
-      if (e.track.kind === 'audio' && $('remoteVideo').muted) {
+      // Tampilkan overlay unmute jika video masih muted (kecuali di mode OBS/clean)
+      const isObs = new URLSearchParams(location.search).get('clean') === 'true';
+      if ($('remoteVideo').muted && !isObs) {
         $('unmuteOverlay').classList.remove('hidden');
       }
 
