@@ -394,6 +394,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     };
     ws.onclose = () => {
       setStatus('disconnected', '⚡ Disconnected');
+      clearInterval(heartbeatInterval);
       if (localStream && reconnectAttempts < MAX_RECONNECT) {
         const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 10000);
         reconnectAttempts++;
@@ -401,6 +402,14 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
         reconnectTimer = setTimeout(connectSignaling, delay);
       }
     };
+
+    const heartbeatInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping' }));
+      } else {
+        clearInterval(heartbeatInterval);
+      }
+    }, 30000);
     ws.onerror = () => {};
   }
 

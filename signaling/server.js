@@ -314,6 +314,9 @@ wss.on('connection', (ws, req) => {
       case 'leave':
         handleLeave(ws, msg);
         break;
+      case 'ping':
+        safeSend(ws, { type: 'pong' });
+        break;
       default:
         safeSend(ws, { type: 'error', code: 'UNKNOWN_TYPE', message: `Unknown message type: ${msg.type}` });
     }
@@ -482,13 +485,13 @@ wss.on('connection', (ws, req) => {
 const keepaliveInterval = setInterval(() => {
   wss.clients.forEach((ws) => {
     if (ws.isAlive === false) {
-      log('warn', 'Terminating stale WebSocket');
+      log('warn', 'Terminating stale WebSocket', { clientId: ws.clientId, ip: ws.ip });
       return ws.terminate();
     }
     ws.isAlive = false;
     ws.ping();
   });
-}, 30000);
+}, 60000);
 
 wss.on('close', () => {
   clearInterval(keepaliveInterval);

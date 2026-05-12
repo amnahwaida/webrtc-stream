@@ -312,8 +312,17 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       }
       ws = null;
       setConn('off', 'Disconnected');
+      clearInterval(heartbeatInterval);
       scheduleReconnect(myGen);
     };
+
+    const heartbeatInterval = setInterval(() => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'ping' }));
+      } else {
+        clearInterval(heartbeatInterval);
+      }
+    }, 30000);
 
     socket.onerror = () => {
       dbg(`WS error gen=${myGen}`);
