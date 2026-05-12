@@ -335,15 +335,15 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
         frameRate: { ideal: fps },
         facingMode: facingMode
       },
-      // Optimasi Audio: Matikan processing yang menambah delay
-      audio: audioEnabled ? {
-        echoCancellation: false,    // Tidak perlu echo cancel di streaming 1 arah
-        noiseSuppression: false,    // Matikan noise suppression (tambah ~40ms delay)
-        autoGainControl: false,     // Matikan auto gain (tambah ~20ms delay)
-        channelCount: 1,            // Mono lebih ringan
-        sampleRate: 48000,          // Sample rate optimal untuk Opus
-        latency: 0                  // Minta latency serendah mungkin
-      } : false
+      // SELALU tangkap audio, tapi mulai dalam keadaan mati
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        channelCount: 1,
+        sampleRate: 48000,
+        latency: 0
+      }
     };
     if (selCamera.value && selCamera.value !== 'Loading...') {
       constraints.video.deviceId = { exact: selCamera.value };
@@ -357,8 +357,10 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       localStream.getVideoTracks().forEach(t => {
         t.contentHint = 'motion';
       });
+      // Audio selalu ada tapi mulai dalam keadaan mati
       localStream.getAudioTracks().forEach(t => {
-        t.contentHint = 'speech';  // Optimasi codec untuk suara manusia
+        t.contentHint = 'speech';
+        t.enabled = audioEnabled;  // Matikan audio sampai user nyalakan
       });
       localVideo.srcObject = localStream;
       placeholder.classList.add('hidden');
@@ -624,67 +626,16 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     }
   }
 
+  // Audio toggle sekarang sangat sederhana: hanya enable/disable track
   async function doAudioToggle() {
     audioEnabled = !audioEnabled;
     btnAudio.textContent = audioEnabled ? '🔊 Audio On' : '🔇 Audio Off';
     btnAudio.classList.toggle('active', audioEnabled);
     $('fabAudio').textContent = audioEnabled ? '🔊' : '🔇';
     $('fabAudio').classList.toggle('active', audioEnabled);
-
-    if (!localStream) return;
-
-    if (audioEnabled) {
-      // Cek apakah sudah ada audio track
-      const existingAudio = localStream.getAudioTracks();
-      if (existingAudio.length > 0) {
-        existingAudio.forEach(t => t.enabled = true);
-      } else {
-        // Belum ada audio track, ambil dari mic dan tambahkan
-        try {
-          const audioStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false,
-              channelCount: 1,
-              sampleRate: 48000,
-              latency: 0
-            }
-          });
-          const audioTrack = audioStream.getAudioTracks()[0];
-          audioTrack.contentHint = 'speech';
-          localStream.addTrack(audioTrack);
-
-          // Tambahkan audio track ke semua peer connections yang aktif
-          for (const [, pc] of peerConnections) {
-            pc.addTrack(audioTrack, localStream);
-            // Renegosiasi agar viewer tahu ada audio baru
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            // Cari viewerId dari map
-            for (const [viewerId, p] of peerConnections) {
-              if (p === pc && ws?.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'offer', roomId, sdp: pc.localDescription.sdp,
-                  senderId: clientId, targetId: viewerId
-                }));
-                break;
-              }
-            }
-          }
-          toast('🎙️ Mikrofon aktif');
-        } catch(e) {
-          toast('❌ Gagal akses mikrofon: ' + e.message, 'error');
-          audioEnabled = false;
-          btnAudio.textContent = '🔇 Audio Off';
-          btnAudio.classList.remove('active');
-          $('fabAudio').textContent = '🔇';
-          $('fabAudio').classList.remove('active');
-        }
-      }
-    } else {
-      // Matikan audio track
-      localStream.getAudioTracks().forEach(t => t.enabled = false);
+    if (localStream) {
+      localStream.getAudioTracks().forEach(t => t.enabled = audioEnabled);
+      toast(audioEnabled ? '🎙️ Mikrofon aktif' : '🔇 Mikrofon mati');
     }
   }
 
