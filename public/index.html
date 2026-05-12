@@ -333,7 +333,10 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       video: {
         width: { ideal: w }, height: { ideal: h },
         frameRate: { ideal: fps },
-        facingMode: facingMode
+        facingMode: facingMode,
+        // Optimasi video driver: matikan buffering tingkat rendah
+        googVideoBadFramesPacketsWindow: 0,
+        googLeakyBucket: false
       },
       // SELALU tangkap audio, tapi mulai dalam keadaan mati
       audio: {
@@ -342,7 +345,13 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
         autoGainControl: false,
         channelCount: 1,
         sampleRate: 48000,
-        latency: 0
+        sampleSize: 16,
+        latency: 0,
+        googEchoCancellation: false,
+        googAutoGainControl: false,
+        googNoiseSuppression: false,
+        googHighpassFilter: false,
+        googTypingNoiseDetection: false
       }
     };
     if (selCamera.value && selCamera.value !== 'Loading...') {
