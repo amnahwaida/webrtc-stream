@@ -58,5 +58,24 @@ services:
           memory: 128M
           cpus: '0.5'
 
+  # Bridge untuk Webcam USB STB
+  camera-bridge:
+    build:
+      context: .
+      dockerfile: signaling/Dockerfile.bridge
+    container_name: webrtc-bridge
+    restart: unless-stopped
+    network_mode: host
+    devices:
+      - "/dev/video1:/dev/video1"
+    environment:
+      - SIGNALING_URL=http://localhost:3000
+      - ROOM_ID=stb-cam
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "1"
+
 volumes:
   records:

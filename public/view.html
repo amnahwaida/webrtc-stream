@@ -128,6 +128,9 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     </div>
     <div class="topbar-right">
       <button class="icon-btn" id="btnStats" title="Toggle Stats">📊</button>
+      <select id="selSource" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:0 10px;font-size:12px;outline:none;cursor:pointer">
+        <option value="">📡 Loading sources...</option>
+      </select>
       <button class="icon-btn" id="btnConfig" title="Settings">⚙️</button>
       <button class="icon-btn" id="btnDebug" title="Debug Log">🐛</button>
       <button class="icon-btn" id="btnFullscreen" title="Fullscreen">⛶</button>
@@ -591,6 +594,36 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     if (e.key === 'm') $('btnMute').click();
     if (e.key === 'd') $('btnDebug').click();
   });
+
+  // ── Source Switcher ──
+  async function updateSources() {
+    try {
+      const res = await fetch('/api/v1/rooms');
+      const rooms = await res.json();
+      const sel = $('selSource');
+      const current = roomId;
+      
+      sel.innerHTML = '<option value="">📺 Choose Source...</option>';
+      rooms.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.id;
+        opt.textContent = (r.id === 'stb-cam' ? '🛠️ STB Camera' : `🎥 ${r.id}`) + ` (${r.viewers} v)`;
+        if (r.id === current) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    } catch(e) {}
+  }
+
+  $('selSource').onchange = (e) => {
+    if (!e.target.value) return;
+    roomId = e.target.value;
+    $('cfgRoom').value = roomId;
+    dbg('Switching to source: ' + roomId);
+    connect();
+  };
+
+  setInterval(updateSources, 5000);
+  updateSources();
 
   // ── Start ──
   $('remoteVideo').muted = false;
