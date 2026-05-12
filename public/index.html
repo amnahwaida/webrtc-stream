@@ -261,6 +261,17 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   let reconnectTimer = null;
   let reconnectAttempts = 0;
   const MAX_RECONNECT = 10;
+
+  // ICE/STUN/TURN configuration - local coturn server (fully offline LAN)
+  const stunHost = location.hostname;
+  const rtcConfig = {
+    iceServers: [
+      { urls: `stun:${stunHost}:3478` },
+      { urls: `turn:${stunHost}:3478`, username: 'webrtc', credential: 'webrtc123' }
+    ],
+    iceTransportPolicy: 'all',
+    iceCandidatePoolSize: 2
+  };
   let panelOpen = false;
 
   function toast(msg, type = '') {
@@ -440,7 +451,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 
   // ── WebRTC ──
   function createPeerConnection(viewerId) {
-    const pc = new RTCPeerConnection({ iceTransportPolicy: 'all', iceCandidatePoolSize: 2 });
+    const pc = new RTCPeerConnection(rtcConfig);
     peerConnections.set(viewerId, pc);
     if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
@@ -459,9 +470,33 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       if (e.candidate && ws?.readyState === WebSocket.OPEN)
         ws.send(JSON.stringify({ type: 'candidate', roomId, candidate: e.candidate, senderId: clientId, targetId: viewerId }));
     };
+
+    let disconnectTimer = null;
     pc.oniceconnectionstatechange = () => {
       const s = pc.iceConnectionState;
-      if (s === 'failed' || s === 'disconnected') { pc.close(); peerConnections.delete(viewerId); }
+      console.log(`[ICE] ${viewerId}: ${s}`);
+      clearTimeout(disconnectTimer);
+      if (s === 'connected' || s === 'completed') {
+        // Connection is healthy
+      } else if (s === 'disconnected') {
+        // Grace period - disconnected is often temporary
+        disconnectTimer = setTimeout(() => {
+          if (pc.iceConnectionState === 'disconnected') {
+            console.log(`[ICE] ${viewerId}: still disconnected after grace period, attempting ICE restart`);
+            pc.createOffer({ iceRestart: true })
+              .then(offer => pc.setLocalDescription(offer))
+              .then(() => {
+                if (ws?.readyState === WebSocket.OPEN)
+                  ws.send(JSON.stringify({ type: 'offer', roomId, sdp: pc.localDescription.sdp, senderId: clientId, targetId: viewerId }));
+              })
+              .catch(() => { pc.close(); peerConnections.delete(viewerId); });
+          }
+        }, 5000);
+      } else if (s === 'failed') {
+        console.log(`[ICE] ${viewerId}: failed, closing`);
+        pc.close();
+        peerConnections.delete(viewerId);
+      }
     };
 
     pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })

@@ -205,6 +205,16 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   let pendingCandidates = [];
   let isMuted = false;
 
+  // ICE/STUN/TURN configuration - local coturn server (fully offline LAN)
+  const stunHost = location.hostname;
+  const rtcConfig = {
+    iceServers: [
+      { urls: `stun:${stunHost}:3478` },
+      { urls: `turn:${stunHost}:3478`, username: 'webrtc', credential: 'webrtc123' }
+    ],
+    iceTransportPolicy: 'all'
+  };
+
   $('cfgRoom').value = roomId;
   dbg('Viewer initialized, clientId=' + clientId);
 
@@ -420,9 +430,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 
     dbg('Creating PeerConnection for offer');
 
-    pc = new RTCPeerConnection({
-      iceTransportPolicy: 'all'
-    });
+    pc = new RTCPeerConnection(rtcConfig);
 
     pc.ontrack = (e) => {
       if (gen !== generation) return;
@@ -444,14 +452,24 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       }
     };
 
+    let iceDisconnectTimer = null;
     pc.oniceconnectionstatechange = () => {
       if (!pc || gen !== generation) return;
       const s = pc.iceConnectionState;
       dbg('ICE state: ' + s);
+      clearTimeout(iceDisconnectTimer);
       if (s === 'connected' || s === 'completed') {
         setConn('ok', 'Connected');
       } else if (s === 'disconnected') {
-        setConn('off', 'ICE disconnected');
+        setConn('off', 'ICE disconnected (recovering...)');
+        // Grace period - disconnected is often temporary on LAN
+        iceDisconnectTimer = setTimeout(() => {
+          if (pc && pc.iceConnectionState === 'disconnected') {
+            dbg('ICE still disconnected after grace period');
+            setConn('off', 'ICE disconnected');
+            toast('⚠️ Connection unstable...');
+          }
+        }, 5000);
       } else if (s === 'failed') {
         setConn('off', 'ICE failed');
         toast('❌ ICE failed, waiting for new offer...');

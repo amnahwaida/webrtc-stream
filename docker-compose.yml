@@ -5,10 +5,10 @@ services:
       dockerfile: signaling/Dockerfile
     container_name: webrtc-signaling
     restart: unless-stopped
-    ports:
-      - "${PORT:-3000}:3000"
+    network_mode: host
     environment:
-      - PORT=3000
+      - PORT=${PORT:-3000}
+      - HTTP_PORT=${HTTP_PORT:-3080}
       - ROOM_TOKEN=${ROOM_TOKEN:-}
       - ADMIN_TOKEN=${ADMIN_TOKEN:-}
       - MAX_VIEWERS=${MAX_VIEWERS:-5}
@@ -16,8 +16,6 @@ services:
       - RECORD_DIR=/data/records
     volumes:
       - records:/data/records
-    networks:
-      - webrtc-net
     logging:
       driver: json-file
       options:
@@ -29,9 +27,37 @@ services:
           memory: 512M
           cpus: '1.0'
 
+  # Local STUN/TURN server for fully offline LAN
+  coturn:
+    image: coturn/coturn:alpine
+    container_name: webrtc-coturn
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --listening-port=3478
+      - --min-port=49152
+      - --max-port=49200
+      - --no-tls
+      - --no-dtls
+      - --no-auth
+      - --no-cli
+      - --fingerprint
+      - --lt-cred-mech
+      - --user=webrtc:webrtc123
+      - --realm=lan
+      - --log-file=stdout
+      - --simple-log
+      - --no-multicast-peers
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+
 volumes:
   records:
-
-networks:
-  webrtc-net:
-    driver: bridge
