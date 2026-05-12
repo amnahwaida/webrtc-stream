@@ -39,8 +39,7 @@ services:
       - --max-port=49200
       - --no-tls
       - --no-dtls
-      - --no-auth
-      - --no-cli
+      - --cli-password=disabled
       - --fingerprint
       - --lt-cred-mech
       - --user=webrtc:webrtc123
