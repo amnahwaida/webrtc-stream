@@ -270,6 +270,8 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       { urls: `turn:${stunHost}:3478`, username: 'webrtc', credential: 'webrtc123' }
     ],
     iceTransportPolicy: 'all',
+    bundlePolicy: 'max-bundle',         // Semua media lewat 1 koneksi
+    rtcpMuxPolicy: 'require',           // Gabungkan RTCP dan RTP
     iceCandidatePoolSize: 2
   };
   let panelOpen = false;
@@ -491,8 +493,11 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     });
 
     pc.onicecandidate = (e) => {
-      if (e.candidate && ws?.readyState === WebSocket.OPEN)
-        ws.send(JSON.stringify({ type: 'candidate', roomId, candidate: e.candidate, senderId: clientId, targetId: viewerId }));
+      if (!e.candidate || ws?.readyState !== WebSocket.OPEN) return;
+      // Di LAN, prioritaskan host candidate untuk koneksi tercepat
+      const c = e.candidate;
+      if (c.type === 'relay') return; // Skip relay di jaringan lokal
+      ws.send(JSON.stringify({ type: 'candidate', roomId, candidate: c, senderId: clientId, targetId: viewerId }));
     };
 
     let disconnectTimer = null;

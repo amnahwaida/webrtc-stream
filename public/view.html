@@ -237,7 +237,9 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       { urls: `stun:${stunHost}:3478` },
       { urls: `turn:${stunHost}:3478`, username: 'webrtc', credential: 'webrtc123' }
     ],
-    iceTransportPolicy: 'all'
+    iceTransportPolicy: 'all',
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require'
   };
 
   $('cfgRoom').value = roomId;
