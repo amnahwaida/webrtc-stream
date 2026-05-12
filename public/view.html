@@ -116,29 +116,36 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 #debugLog{position:fixed;bottom:60px;left:10px;right:10px;max-height:150px;overflow-y:auto;
   background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;
-    /* Clean Mode untuk OBS */
-    body.clean-mode {
-      background: #000 !important;
-      overflow: hidden !important;
-    }
-    body.clean-mode .main-container {
-      padding: 0 !important;
-      height: 100vh !important;
-      max-width: 100% !important;
-    }
-    body.clean-mode .topbar,
-    body.clean-mode .bottombar,
-    body.clean-mode .stats-panel,
-    body.clean-mode #debugLog {
-      display: none !important;
-    }
-    body.clean-mode #remoteVideo {
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      height: 100vh !important;
-      width: 100vw !important;
-      object-fit: contain;
-    }
+  padding:8px;border-radius:8px;z-index:200;display:none;white-space:pre-wrap;word-break:break-all}
+
+/* Unmute Overlay */
+.unmute-overlay {
+  position:absolute;inset:0;z-index:15;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.5);cursor:pointer;
+}
+.unmute-overlay.hidden { display:none }
+.unmute-btn {
+  text-align:center;color:#fff;
+  padding:24px 40px;border-radius:16px;
+  background:rgba(108,92,231,0.8);backdrop-filter:blur(10px);
+  animation:pulse-unmute 2s infinite;
+}
+.unmute-btn p { margin-top:8px;font-size:16px;font-weight:600 }
+@keyframes pulse-unmute { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+
+/* Clean Mode untuk OBS */
+body.clean-mode { background:#000 !important;overflow:hidden !important }
+body.clean-mode .main-container { padding:0 !important;height:100vh !important;max-width:100% !important }
+body.clean-mode .topbar,
+body.clean-mode .bottombar,
+body.clean-mode .stats-panel,
+body.clean-mode #debugLog,
+body.clean-mode .unmute-overlay { display:none !important }
+body.clean-mode #remoteVideo {
+  border-radius:0 !important;box-shadow:none !important;
+  height:100vh !important;width:100vw !important;object-fit:contain;
+}
   </style>
 </head>
 <body>
@@ -160,6 +167,13 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   </div>
   <div class="video-area">
     <video id="remoteVideo" autoplay playsinline></video>
+    <!-- Overlay unmute: muncul saat stream mulai -->
+    <div id="unmuteOverlay" class="unmute-overlay hidden">
+      <div class="unmute-btn">
+        <span style="font-size:48px">🔇</span>
+        <p>Tap untuk aktifkan suara</p>
+      </div>
+    </div>
     <div class="waiting" id="waiting">
       <div class="spinner"></div>
       <h2>Waiting for stream...</h2>
@@ -489,11 +503,16 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       toast('🎬 Stream started!');
       startStats();
 
-      // ── Optimasi Latensi: Kurangi Jitter Buffer ──
+      // Tampilkan overlay unmute jika audio ada dan masih muted
+      if (e.track.kind === 'audio' && $('remoteVideo').muted) {
+        $('unmuteOverlay').classList.remove('hidden');
+      }
+
+      // Optimasi Latensi: Kurangi Jitter Buffer
       if (e.receiver) {
         try {
-          e.receiver.playoutDelayHint = 0;       // Minimum playout delay
-          e.receiver.jitterBufferTarget = 0;     // Minimum jitter buffer
+          e.receiver.playoutDelayHint = 0;
+          e.receiver.jitterBufferTarget = 0;
         } catch(err) { dbg('Jitter buffer hint not supported'); }
       }
     };
@@ -618,11 +637,22 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     else { document.exitFullscreen(); $('app').classList.remove('fullscreen'); }
   };
 
+  // ── Unmute Overlay ──
+  function doUnmute() {
+    $('remoteVideo').muted = false;
+    isMuted = false;
+    $('btnMute').textContent = '🔊 Unmuted';
+    $('unmuteOverlay').classList.add('hidden');
+    toast('🔊 Audio aktif');
+  }
+
+  $('unmuteOverlay').onclick = doUnmute;
 
   $('btnMute').onclick = () => {
     isMuted = !isMuted;
     $('remoteVideo').muted = isMuted;
     $('btnMute').textContent = isMuted ? '🔇 Muted' : '🔊 Unmuted';
+    if (!isMuted) $('unmuteOverlay').classList.add('hidden');
   };
   $('btnPip').onclick = async () => {
     try {
