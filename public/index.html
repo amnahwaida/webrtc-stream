@@ -363,6 +363,8 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
         t.enabled = audioEnabled;  // Matikan audio sampai user nyalakan
       });
       localVideo.srcObject = localStream;
+      // Optimasi: minta browser render preview tanpa buffering
+      try { localVideo.latencyHint = 0; } catch(e) {}
       placeholder.classList.add('hidden');
       statsOverlay.style.display = '';
       await enumCameras();
@@ -469,6 +471,16 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   }
 
   // ── WebRTC ──
+  // SDP munging: optimasi Opus untuk latensi rendah
+  function optimizeSdp(sdp) {
+    // Opus: aktifkan DTX, CBR, batasi bitrate, mono
+    sdp = sdp.replace(
+      /(a=fmtp:\d+ [^\r\n]*useinbandfec=1)/g,
+      '$1;usedtx=1;stereo=0;sprop-stereo=0;cbr=1;maxaveragebitrate=64000;maxplaybackrate=48000'
+    );
+    return sdp;
+  }
+
   function createPeerConnection(viewerId) {
     const pc = new RTCPeerConnection(rtcConfig);
     peerConnections.set(viewerId, pc);
@@ -479,12 +491,18 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     transceivers.forEach(t => {
       if (t.sender?.track?.kind === 'video') {
         const codecs = RTCRtpSender.getCapabilities('video')?.codecs || [];
-        // Prioritaskan H264 Baseline (42e0) untuk latensi terendah
         const h264Baseline = codecs.filter(c => c.mimeType === 'video/H264' && (c.sdpFmtpLine || '').includes('42e0'));
         const h264Other = codecs.filter(c => c.mimeType === 'video/H264' && !(c.sdpFmtpLine || '').includes('42e0'));
         const others = codecs.filter(c => c.mimeType !== 'video/H264');
         const preferred = [...h264Baseline, ...h264Other, ...others];
         if (preferred.length) try { t.setCodecPreferences(preferred); } catch(e) {}
+      }
+      // Prioritaskan Opus untuk audio (latensi terendah)
+      if (t.sender?.track?.kind === 'audio') {
+        const codecs = RTCRtpSender.getCapabilities('audio')?.codecs || [];
+        const opus = codecs.filter(c => c.mimeType === 'audio/opus');
+        const rest = codecs.filter(c => c.mimeType !== 'audio/opus');
+        if (opus.length) try { t.setCodecPreferences([...opus, ...rest]); } catch(e) {}
       }
     });
 
@@ -551,7 +569,11 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     };
 
     pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })
-      .then(offer => pc.setLocalDescription(offer))
+      .then(offer => {
+        // Optimasi SDP sebelum kirim
+        offer.sdp = optimizeSdp(offer.sdp);
+        return pc.setLocalDescription(offer);
+      })
       .then(() => ws.send(JSON.stringify({ type: 'offer', roomId, sdp: pc.localDescription.sdp, senderId: clientId, targetId: viewerId })))
       .catch(err => console.error('Offer error:', err));
   }

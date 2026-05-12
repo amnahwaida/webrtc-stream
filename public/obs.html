@@ -37,7 +37,8 @@
     ],
     iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
-    rtcpMuxPolicy: 'require'
+    rtcpMuxPolicy: 'require',
+    iceCandidatePoolSize: 2
   };
 
   let ws, pc, publisherId;
@@ -109,6 +110,8 @@
 
     pc.ontrack = (e) => {
       vid.srcObject = e.streams[0] || new MediaStream([e.track]);
+      // Optimasi: render video tanpa buffering
+      try { vid.latencyHint = 0; } catch(err) {}
       // Tampilkan overlay unmute saat stream mulai
       if (vid.muted) {
         overlay.style.display = 'flex';

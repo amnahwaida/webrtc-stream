@@ -255,7 +255,8 @@ body.clean-mode #remoteVideo {
     ],
     iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
-    rtcpMuxPolicy: 'require'
+    rtcpMuxPolicy: 'require',
+    iceCandidatePoolSize: 2  // Pre-allocate ICE candidates untuk handshake lebih cepat
   };
 
   $('cfgRoom').value = roomId;
@@ -500,6 +501,8 @@ body.clean-mode #remoteVideo {
       if (gen !== generation) return;
       dbg('Got remote track: ' + e.track.kind);
       $('remoteVideo').srcObject = e.streams[0] || new MediaStream([e.track]);
+      // Optimasi: minta browser render video tanpa buffering
+      try { $('remoteVideo').latencyHint = 0; } catch(err) {}
       $('waiting').classList.add('hidden');
       setConn('ok', 'Streaming');
       toast('🎬 Stream started!');
