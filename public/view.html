@@ -291,7 +291,8 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       $('topbar').style.display = 'none';
       $('footer').style.display = 'none';
       $('debugLog').style.display = 'none';
-      $('statsPanel').style.display = 'none';
+      // Kita biarkan statsPanel terlihat sedikit agar tahu status koneksinya
+      $('statsPanel').style.opacity = '0.5'; 
     }
 
     const token = urlParams.get('token') || '';
