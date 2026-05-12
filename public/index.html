@@ -471,16 +471,23 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   }
 
   // ── WebRTC ──
-  // SDP munging: optimasi Opus untuk latensi rendah
+  // SDP munging: optimasi ultra-deep untuk latensi
   function optimizeSdp(sdp) {
-    // Opus: aktifkan DTX, CBR, batasi bitrate, mono, ptime=10 (paket lebih kecil = delay lebih rendah)
+    // 1. Opus: dtx, cbr, ptime=10
     sdp = sdp.replace(
       /(a=fmtp:\d+ [^\r\n]*useinbandfec=1)/g,
       '$1;usedtx=1;stereo=0;sprop-stereo=0;cbr=1;maxaveragebitrate=64000;maxplaybackrate=48000;ptime=10'
     );
-    // Tambahkan minimal bitrate untuk menjaga stabilitas (x-google-min-bitrate)
-    sdp = sdp.replace(/a=mid:video\r\n/g, 'a=mid:video\r\na=fmtp:96 x-google-min-bitrate=1000\r\n');
-    return sdp;
+    // 2. Video: Langsung "tancap gas" bitrate tinggi (start=2500) agar tidak ada ramp-up delay
+    sdp = sdp.replace(/a=mid:video\r\n/g, 'a=mid:video\r\na=fmtp:96 x-google-min-bitrate=1000;x-google-start-bitrate=2500;x-google-max-bitrate=5000\r\n');
+    
+    // 3. SDP Pruning: Buang codec selain H264 dan Opus agar paket signaling kecil & cepat
+    const lines = sdp.split('\r\n');
+    const filtered = lines.filter(line => {
+      if (line.includes('video/VP8') || line.includes('video/VP9') || line.includes('video/AV1')) return false;
+      return true;
+    });
+    return filtered.join('\r\n');
   }
 
   function createPeerConnection(viewerId) {
