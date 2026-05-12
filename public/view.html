@@ -116,8 +116,24 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 #debugLog{position:fixed;bottom:60px;left:10px;right:10px;max-height:150px;overflow-y:auto;
   background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;
-  padding:8px;border-radius:8px;z-index:200;display:none;white-space:pre-wrap;word-break:break-all}
-</style>
+    /* Clean Mode untuk OBS */
+    body.clean-mode {
+      background: #000 !important;
+      overflow: hidden !important;
+    }
+    body.clean-mode .main-container {
+      padding: 0 !important;
+      height: 100vh !important;
+      max-width: 100% !important;
+    }
+    body.clean-mode #remoteVideo {
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      height: 100vh !important;
+      width: 100vw !important;
+      object-fit: contain;
+    }
+  </style>
 </head>
 <body>
 <div class="app" id="app">
