@@ -26,26 +26,32 @@ class STBCameraBridge:
         self.player = None
 
     async def start(self):
-        # 1. Buka Webcam dengan FFmpeg options untuk Hardware Encoding
-        # Kita menggunakan h264_v4l2m2m untuk efisiensi maksimal
+        # 1. Buka Webcam
         try:
             options = {
                 "video_size": "1280x720",
                 "framerate": "30",
-                "input_format": "mjpeg" # Webcam Anda support MJPG (lebih cepat)
+                "input_format": "mjpeg"
             }
-            # Note: aiortc MediaPlayer menggunakan ffmpeg di backend
             self.player = MediaPlayer("/dev/video1", format="v4l2", options=options)
         except Exception as e:
             logger.error(f"Gagal membuka webcam: {e}")
             return
 
-        # 2. Connect ke Signaling Server via WebSocket
-        async with aiohttp.ClientSession() as session:
-            ws_url = f"{SIGNALING_URL.replace('http', 'ws')}/ws"
-            async with session.ws_connect(ws_url) as ws:
-                self.ws = ws
-                logger.info(f"Terhubung ke Signaling: {ws_url}")
+        # 2. Connect ke Signaling Server
+        # Gunakan WSS jika URL menggunakan HTTPS, dan abaikan SSL check untuk self-signed cert
+        is_https = SIGNALING_URL.startswith("https")
+        ws_url = f"{SIGNALING_URL.replace('http', 'ws')}/ws"
+        
+        # Abaikan SSL verification
+        ssl_context = False if is_https else None
+        
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            try:
+                async with session.ws_connect(ws_url) as ws:
+                    self.ws = ws
+                    logger.info(f"Terhubung ke Signaling: {ws_url}")
 
                 # Join Room
                 await ws.send_json({
