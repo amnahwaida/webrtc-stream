@@ -679,9 +679,29 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   updateSources();
 
   // ── Start ──
-  // Hanya mute jika mode OBS (clean), viewer biasa harus bisa dengar audio
+  // Chrome Autoplay Policy: video HARUS muted agar autoplay jalan
+  // Setelah user klik apapun di halaman, baru unmute
+  $('remoteVideo').muted = true;
+
+  // Auto-unmute setelah interaksi pertama (klik di mana saja)
+  function autoUnmute() {
+    if (!$('remoteVideo').muted) return;
+    $('remoteVideo').muted = false;
+    isMuted = false;
+    $('btnMute').textContent = '🔊 Unmuted';
+    toast('🔊 Audio aktif');
+    document.removeEventListener('click', autoUnmute);
+    document.removeEventListener('touchstart', autoUnmute);
+  }
+  
   const isCleanMode = new URLSearchParams(location.search).get('clean') === 'true';
-  $('remoteVideo').muted = isCleanMode;
+  if (!isCleanMode) {
+    // Untuk viewer biasa, unmute otomatis setelah klik pertama
+    document.addEventListener('click', autoUnmute);
+    document.addEventListener('touchstart', autoUnmute);
+    toast('🔇 Klik di mana saja untuk mengaktifkan audio');
+  }
+
   connect();
 })();
 </script>
