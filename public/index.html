@@ -15,29 +15,26 @@
   --radius:12px;--glass:rgba(18,18,26,0.85);
 }
 html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
-
 .app{display:flex;flex-direction:column;height:100%;position:relative}
 
-/* Header */
-.header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:12px 16px;background:var(--glass);backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);z-index:10;
+/* Status Bar */
+.status-bar{
+  padding:4px 16px;font-size:11px;text-align:center;
+  font-weight:500;letter-spacing:.3px;flex-shrink:0;
 }
-.header h1{font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px}
-.header h1 .dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0}
-.header h1 .dot.live{background:var(--green);animation:pulse 1.5s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.badge{font-size:11px;padding:3px 8px;border-radius:20px;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.status-bar.connecting{background:var(--orange);color:#000}
+.status-bar.connected{background:var(--green);color:#000}
+.status-bar.disconnected{background:var(--red);color:#fff}
 
-/* Video Container */
-.video-wrap{flex:1;position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
+/* Video - takes all remaining space */
+.video-wrap{flex:1;position:relative;background:#000;overflow:hidden;min-height:0}
 #localVideo{width:100%;height:100%;object-fit:contain;background:#000}
+
+/* Floating badges on video */
 .video-overlay{
-  position:absolute;bottom:0;left:0;right:0;
-  padding:16px;background:linear-gradient(transparent,rgba(0,0,0,.7));
-  display:flex;justify-content:space-between;align-items:flex-end;
-  pointer-events:none;
+  position:absolute;top:12px;left:12px;right:12px;
+  display:flex;justify-content:space-between;align-items:flex-start;
+  pointer-events:none;z-index:5;
 }
 .stat-pill{
   font-size:11px;padding:4px 10px;border-radius:20px;
@@ -46,44 +43,82 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   border:1px solid rgba(255,255,255,.1);
 }
 .stat-pill .val{color:var(--green);font-weight:600}
+.room-badge{
+  font-size:11px;padding:4px 10px;border-radius:20px;
+  background:rgba(108,92,231,.4);backdrop-filter:blur(8px);
+  color:#fff;border:1px solid rgba(162,155,254,.3);font-weight:600;
+}
 
 /* Placeholder */
 .placeholder{
-  display:flex;flex-direction:column;align-items:center;gap:16px;
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;
   color:var(--text2);text-align:center;padding:20px;
 }
+.placeholder.hidden{display:none}
 .placeholder svg{width:64px;height:64px;opacity:.3}
 .placeholder p{font-size:14px;max-width:280px;line-height:1.5}
 
-/* Controls */
-.controls{
-  padding:16px;background:var(--glass);backdrop-filter:blur(20px);
-  border-top:1px solid var(--border);
+/* Floating toggle button (always visible) */
+.fab-toggle{
+  position:absolute;bottom:16px;right:16px;z-index:15;
+  width:48px;height:48px;border-radius:50%;border:none;
+  background:var(--accent);color:#fff;font-size:22px;
+  cursor:pointer;box-shadow:0 4px 20px rgba(108,92,231,.5);
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
 }
-.controls-row{display:flex;gap:10px;margin-bottom:10px}
-.controls-row:last-child{margin-bottom:0}
+.fab-toggle:active{transform:scale(.9)}
+.fab-toggle.open{background:var(--red)}
+
+/* Floating action buttons (quick controls when panel hidden) */
+.fab-actions{
+  position:absolute;bottom:16px;left:16px;z-index:15;
+  display:flex;gap:8px;
+}
+.fab-actions.hidden{display:none}
+.fab-btn{
+  width:40px;height:40px;border-radius:50%;border:none;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(8px);
+  color:#fff;font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(255,255,255,.15);transition:all .2s;
+}
+.fab-btn:active{transform:scale(.9)}
+.fab-btn.active{background:var(--accent);border-color:var(--accent)}
+.fab-btn.recording{background:var(--red);border-color:var(--red)}
+
+/* Controls Panel (slides from bottom) */
+.controls{
+  position:absolute;bottom:0;left:0;right:0;z-index:10;
+  background:var(--glass);backdrop-filter:blur(24px);
+  border-top:1px solid var(--border);
+  padding:16px;
+  transform:translateY(0);transition:transform .3s ease;
+  max-height:70vh;overflow-y:auto;
+}
+.controls.hidden{transform:translateY(100%)}
 
 .config-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.config-row.triple{grid-template-columns:1fr 1fr 1fr}
 .config-item{display:flex;flex-direction:column;gap:4px}
-.config-item label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.config-item label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
 .config-item select,.config-item input{
   padding:8px 10px;border-radius:8px;border:1px solid var(--border);
   background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;
-  outline:none;transition:border-color .2s;
+  outline:none;
 }
-.config-item select:focus,.config-item input:focus{border-color:var(--accent)}
-
+.controls-row{display:flex;gap:10px;margin-bottom:10px}
+.controls-row:last-child{margin-bottom:0}
 .btn{
-  flex:1;padding:14px;border:none;border-radius:var(--radius);
+  flex:1;padding:12px;border:none;border-radius:var(--radius);
   font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;
   display:flex;align-items:center;justify-content:center;gap:8px;
   transition:all .2s ease;
 }
 .btn:active{transform:scale(.97)}
 .btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover{background:var(--accent2)}
 .btn-danger{background:var(--red);color:#fff}
-.btn-danger:hover{background:#ee5a5a}
 .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
 .btn-secondary.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
@@ -95,29 +130,26 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   padding:10px 20px;border-radius:10px;font-size:13px;font-weight:500;
   background:var(--surface2);border:1px solid var(--border);color:var(--text);
   z-index:100;transition:transform .3s ease;backdrop-filter:blur(20px);
-  box-shadow:0 8px 32px rgba(0,0,0,.3);
 }
 .toast.show{transform:translateX(-50%) translateY(0)}
 .toast.error{border-color:var(--red);color:var(--red)}
 .toast.success{border-color:var(--green);color:var(--green)}
 
-/* Connection Status Bar */
-.status-bar{
-  padding:6px 16px;font-size:11px;text-align:center;
-  font-weight:500;letter-spacing:.3px;
+/* Landscape adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+  .controls{max-height:80vh;padding:10px 16px}
+  .config-row{margin-bottom:8px;gap:6px}
+  .config-item select,.config-item input{padding:6px 8px;font-size:12px}
+  .config-item label{font-size:9px}
+  .btn{padding:8px;font-size:12px}
+  .btn-sm{padding:6px;font-size:11px}
+  .status-bar{padding:2px 16px;font-size:10px}
 }
-.status-bar.connecting{background:var(--orange);color:#000}
-.status-bar.connected{background:var(--green);color:#000}
-.status-bar.disconnected{background:var(--red);color:#fff}
 </style>
 </head>
 <body>
 <div class="app">
   <div id="statusBar" class="status-bar disconnected">⚡ Disconnected</div>
-  <div class="header">
-    <h1><span id="liveDot" class="dot"></span> Publisher</h1>
-    <span class="badge" id="roomBadge">Room: cam1</span>
-  </div>
 
   <div class="video-wrap">
     <video id="localVideo" autoplay playsinline muted></video>
@@ -125,78 +157,75 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/>
       </svg>
-      <p>Tap <strong>Start Camera</strong> to begin capturing video from this device</p>
+      <p>Tap <strong>⚙️</strong> to open settings, then <strong>Start Camera</strong></p>
     </div>
+
+    <!-- Floating info on video -->
     <div class="video-overlay" id="statsOverlay" style="display:none">
       <div>
         <span class="stat-pill">🎥 <span class="val" id="statRes">-</span></span>
         <span class="stat-pill">⚡ <span class="val" id="statFps">-</span> fps</span>
-      </div>
-      <div>
         <span class="stat-pill">📤 <span class="val" id="statBitrate">-</span> kbps</span>
       </div>
+      <span class="room-badge" id="roomBadge">cam1</span>
     </div>
+
+    <!-- Quick action buttons (visible when panel is hidden) -->
+    <div class="fab-actions" id="fabActions">
+      <button class="fab-btn recording" id="fabStop" title="Stop" style="display:none">⏹</button>
+      <button class="fab-btn" id="fabFlip" title="Flip Camera" style="display:none">🔄</button>
+      <button class="fab-btn" id="fabAudio" title="Toggle Audio" style="display:none">🔇</button>
+    </div>
+
+    <!-- Toggle button for controls panel -->
+    <button class="fab-toggle" id="fabToggle" title="Toggle Controls">⚙️</button>
   </div>
 
-  <div class="controls">
-    <div class="config-row">
+  <!-- Slide-up Controls Panel -->
+  <div class="controls hidden" id="controlsPanel">
+    <div class="config-row triple">
       <div class="config-item">
         <label>Resolution</label>
         <select id="selRes">
-          <option value="1280x720" selected>720p (HD)</option>
-          <option value="1920x1080">1080p (FHD)</option>
-          <option value="640x480">480p (SD)</option>
+          <option value="1280x720" selected>720p</option>
+          <option value="1920x1080">1080p</option>
+          <option value="640x480">480p</option>
         </select>
       </div>
       <div class="config-item">
-        <label>Frame Rate</label>
+        <label>FPS</label>
         <select id="selFps">
-          <option value="30" selected>30 fps</option>
-          <option value="24">24 fps</option>
-          <option value="15">15 fps</option>
-          <option value="60">60 fps</option>
+          <option value="30" selected>30</option>
+          <option value="24">24</option>
+          <option value="15">15</option>
+          <option value="60">60</option>
+        </select>
+      </div>
+      <div class="config-item">
+        <label>Orientation</label>
+        <select id="selOrientation">
+          <option value="landscape" selected>📺 Land</option>
+          <option value="portrait">📱 Port</option>
         </select>
       </div>
     </div>
     <div class="config-row">
-      <div class="config-item">
-        <label>Orientation</label>
-        <select id="selOrientation">
-          <option value="landscape" selected>📺 Landscape</option>
-          <option value="portrait">📱 Portrait</option>
-        </select>
-      </div>
       <div class="config-item">
         <label>Camera</label>
         <select id="selCamera"><option>Loading...</option></select>
       </div>
-    </div>
-    <div class="config-row">
       <div class="config-item">
         <label>Room ID</label>
-        <input type="text" id="inputRoom" value="cam1" placeholder="e.g. cam1">
-      </div>
-      <div class="config-item">
-        <label>Video Fit</label>
-        <select id="selFit">
-          <option value="contain" selected>Contain (full)</option>
-          <option value="cover">Cover (fill)</option>
-        </select>
+        <input type="text" id="inputRoom" value="cam1" placeholder="cam1">
       </div>
     </div>
     <div class="controls-row">
-      <button class="btn btn-primary" id="btnStart">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-        Start Camera
-      </button>
-      <button class="btn btn-danger" id="btnStop" disabled>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-        Stop
-      </button>
+      <button class="btn btn-primary" id="btnStart">▶ Start Camera</button>
+      <button class="btn btn-danger" id="btnStop" disabled>⏹ Stop</button>
     </div>
     <div class="controls-row">
       <button class="btn btn-secondary btn-sm" id="btnAudio">🔇 Audio Off</button>
-      <button class="btn btn-secondary btn-sm" id="btnFlip">🔄 Flip Camera</button>
+      <button class="btn btn-secondary btn-sm" id="btnFlip">🔄 Flip</button>
     </div>
   </div>
 </div>
@@ -205,7 +234,6 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 
 <script>
 (() => {
-  // ── DOM ──
   const $ = id => document.getElementById(id);
   const localVideo = $('localVideo');
   const btnStart = $('btnStart');
@@ -219,13 +247,12 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   const placeholder = $('placeholder');
   const statsOverlay = $('statsOverlay');
   const statusBar = $('statusBar');
-  const liveDot = $('liveDot');
-  const roomBadge = $('roomBadge');
+  const controlsPanel = $('controlsPanel');
+  const fabToggle = $('fabToggle');
 
-  // ── State ──
   let localStream = null;
   let ws = null;
-  let peerConnections = new Map(); // viewerId -> RTCPeerConnection
+  let peerConnections = new Map();
   let clientId = 'pub_' + Math.random().toString(36).substr(2, 6);
   let roomId = 'cam1';
   let audioEnabled = false;
@@ -234,20 +261,37 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   let reconnectTimer = null;
   let reconnectAttempts = 0;
   const MAX_RECONNECT = 10;
+  let panelOpen = false;
 
-  // ── Toast ──
   function toast(msg, type = '') {
     const el = $('toast');
     el.textContent = msg;
     el.className = 'toast show ' + type;
-    setTimeout(() => el.classList.remove('show'), 3000);
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 3000);
   }
 
-  // ── Status ──
   function setStatus(status, text) {
     statusBar.className = 'status-bar ' + status;
     statusBar.textContent = text;
-    liveDot.className = 'dot' + (status === 'connected' ? ' live' : '');
+  }
+
+  // ── Panel Toggle ──
+  function togglePanel(forceState) {
+    panelOpen = forceState !== undefined ? forceState : !panelOpen;
+    controlsPanel.classList.toggle('hidden', !panelOpen);
+    fabToggle.textContent = panelOpen ? '✕' : '⚙️';
+    fabToggle.classList.toggle('open', panelOpen);
+  }
+
+  fabToggle.addEventListener('click', () => togglePanel());
+
+  // Show fab actions when streaming
+  function updateFabActions() {
+    const streaming = !!localStream;
+    $('fabStop').style.display = streaming ? '' : 'none';
+    $('fabFlip').style.display = streaming ? '' : 'none';
+    $('fabAudio').style.display = streaming ? '' : 'none';
   }
 
   // ── Camera Enumeration ──
@@ -262,9 +306,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
         opt.textContent = cam.label || `Camera ${i + 1}`;
         selCamera.appendChild(opt);
       });
-    } catch (e) {
-      console.warn('Could not enumerate cameras:', e);
-    }
+    } catch (e) {}
   }
 
   // ── Get Media ──
@@ -272,7 +314,6 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     const [baseW, baseH] = selRes.value.split('x').map(Number);
     const fps = parseInt(selFps.value);
     const orientation = $('selOrientation').value;
-    // Swap width/height for portrait mode
     const w = orientation === 'portrait' ? Math.min(baseW, baseH) : Math.max(baseW, baseH);
     const h = orientation === 'portrait' ? Math.max(baseW, baseH) : Math.min(baseW, baseH);
     const constraints = {
@@ -287,25 +328,24 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       constraints.video.deviceId = { exact: selCamera.value };
       delete constraints.video.facingMode;
     }
-    // Apply video fit mode
-    localVideo.style.objectFit = $('selFit').value;
 
     try {
-      if (localStream) {
-        localStream.getTracks().forEach(t => t.stop());
-      }
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
       localStream = await navigator.mediaDevices.getUserMedia(constraints);
       localVideo.srcObject = localStream;
-      placeholder.style.display = 'none';
+      placeholder.classList.add('hidden');
       statsOverlay.style.display = '';
       await enumCameras();
       btnStart.disabled = true;
       btnStop.disabled = false;
+      roomId = inputRoom.value.trim() || 'cam1';
+      $('roomBadge').textContent = roomId;
+      updateFabActions();
+      togglePanel(false); // Auto-hide panel after starting
       toast('📹 Camera started', 'success');
       connectSignaling();
     } catch (err) {
       toast('❌ Camera error: ' + err.message, 'error');
-      console.error('getUserMedia error:', err);
     }
   }
 
@@ -315,17 +355,12 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       localStream = null;
     }
     localVideo.srcObject = null;
-    placeholder.style.display = '';
+    placeholder.classList.remove('hidden');
     statsOverlay.style.display = 'none';
     btnStart.disabled = false;
     btnStop.disabled = true;
-
-    // Close all peer connections
-    for (const [id, pc] of peerConnections) {
-      pc.close();
-    }
+    for (const [, pc] of peerConnections) pc.close();
     peerConnections.clear();
-
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'leave', roomId, clientId }));
       ws.close();
@@ -334,37 +369,30 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     clearInterval(statsInterval);
     clearTimeout(reconnectTimer);
     setStatus('disconnected', '⚡ Disconnected');
+    updateFabActions();
     toast('⏹ Camera stopped');
   }
 
   // ── WebSocket Signaling ──
   function connectSignaling() {
     roomId = inputRoom.value.trim() || 'cam1';
-    roomBadge.textContent = 'Room: ' + roomId;
-
+    $('roomBadge').textContent = roomId;
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const params = new URLSearchParams(location.search);
     const token = params.get('token') || '';
     const wsUrl = `${proto}//${location.host}/ws${token ? '?token=' + token : ''}`;
-
     setStatus('connecting', '🔄 Connecting...');
-
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       reconnectAttempts = 0;
-      setStatus('connected', '✅ Connected to signaling');
-      ws.send(JSON.stringify({
-        type: 'join', roomId, clientId, role: 'publisher'
-      }));
+      setStatus('connected', '✅ Connected');
+      ws.send(JSON.stringify({ type: 'join', roomId, clientId, role: 'publisher' }));
     };
-
     ws.onmessage = (evt) => {
-      const msg = JSON.parse(evt.data);
-      handleSignalingMessage(msg);
+      try { handleSignalingMessage(JSON.parse(evt.data)); } catch(e) {}
     };
-
-    ws.onclose = (evt) => {
+    ws.onclose = () => {
       setStatus('disconnected', '⚡ Disconnected');
       if (localStream && reconnectAttempts < MAX_RECONNECT) {
         const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 10000);
@@ -373,141 +401,81 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
         reconnectTimer = setTimeout(connectSignaling, delay);
       }
     };
-
-    ws.onerror = (err) => {
-      console.error('WebSocket error:', err);
-    };
+    ws.onerror = () => {};
   }
 
-  // ── Signaling Message Handler ──
   function handleSignalingMessage(msg) {
     switch (msg.type) {
       case 'joined':
         toast(`✅ Joined room "${msg.roomId}"`, 'success');
-        // If viewers already present, send offers
-        if (msg.peers) {
-          msg.peers.forEach(p => {
-            if (p.role === 'viewer') createPeerConnection(p.clientId);
-          });
-        }
+        if (msg.peers) msg.peers.forEach(p => {
+          if (p.role === 'viewer') createPeerConnection(p.clientId);
+        });
         startStatsMonitor();
         break;
-
       case 'peer_joined':
-        if (msg.role === 'viewer') {
-          toast('👁️ Viewer connected');
-          createPeerConnection(msg.clientId);
-        }
+        if (msg.role === 'viewer') { toast('👁️ Viewer connected'); createPeerConnection(msg.clientId); }
         break;
-
       case 'peer_left':
-        const pc = peerConnections.get(msg.clientId);
-        if (pc) { pc.close(); peerConnections.delete(msg.clientId); }
+        const pc2 = peerConnections.get(msg.clientId);
+        if (pc2) { pc2.close(); peerConnections.delete(msg.clientId); }
         toast('👁️ Viewer disconnected');
         break;
-
-      case 'answer':
-        handleRemoteAnswer(msg);
-        break;
-
-      case 'candidate':
-        handleRemoteCandidate(msg);
-        break;
-
-      case 'error':
-        toast(`❌ ${msg.message}`, 'error');
-        break;
-
-      case 'server_shutdown':
-        toast('⚠️ Server restarting...', 'error');
-        break;
-
-      case 'kicked':
-        toast('🚫 Kicked by admin', 'error');
-        stopCamera();
-        break;
+      case 'answer': handleRemoteAnswer(msg); break;
+      case 'candidate': handleRemoteCandidate(msg); break;
+      case 'error': toast(`❌ ${msg.message}`, 'error'); break;
+      case 'server_shutdown': toast('⚠️ Server restarting...', 'error'); break;
+      case 'kicked': toast('🚫 Kicked by admin', 'error'); stopCamera(); break;
     }
   }
 
-  // ── WebRTC Peer Connection ──
+  // ── WebRTC ──
   function createPeerConnection(viewerId) {
-    const pc = new RTCPeerConnection({
-      iceTransportPolicy: 'all',
-      iceCandidatePoolSize: 2
-    });
-
+    const pc = new RTCPeerConnection({ iceTransportPolicy: 'all', iceCandidatePoolSize: 2 });
     peerConnections.set(viewerId, pc);
+    if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-    // Add tracks
-    if (localStream) {
-      localStream.getTracks().forEach(track => {
-        pc.addTrack(track, localStream);
-      });
-    }
-
-    // Prefer H.264 if available
+    // Prefer H.264
     const transceivers = pc.getTransceivers();
     transceivers.forEach(t => {
-      if (t.sender && t.sender.track && t.sender.track.kind === 'video') {
+      if (t.sender?.track?.kind === 'video') {
         const codecs = RTCRtpSender.getCapabilities('video')?.codecs || [];
         const h264 = codecs.filter(c => c.mimeType === 'video/H264');
         const others = codecs.filter(c => c.mimeType !== 'video/H264');
-        if (h264.length > 0) {
-          try { t.setCodecPreferences([...h264, ...others]); } catch(e) {}
-        }
+        if (h264.length) try { t.setCodecPreferences([...h264, ...others]); } catch(e) {}
       }
     });
 
     pc.onicecandidate = (e) => {
-      if (e.candidate && ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'candidate', roomId, candidate: e.candidate,
-          senderId: clientId, targetId: viewerId
-        }));
-      }
+      if (e.candidate && ws?.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ type: 'candidate', roomId, candidate: e.candidate, senderId: clientId, targetId: viewerId }));
     };
-
     pc.oniceconnectionstatechange = () => {
-      const state = pc.iceConnectionState;
-      if (state === 'failed' || state === 'disconnected') {
-        pc.close();
-        peerConnections.delete(viewerId);
-      }
+      const s = pc.iceConnectionState;
+      if (s === 'failed' || s === 'disconnected') { pc.close(); peerConnections.delete(viewerId); }
     };
 
-    // Create and send offer
     pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })
       .then(offer => pc.setLocalDescription(offer))
-      .then(() => {
-        ws.send(JSON.stringify({
-          type: 'offer', roomId, sdp: pc.localDescription.sdp,
-          senderId: clientId, targetId: viewerId
-        }));
-      })
+      .then(() => ws.send(JSON.stringify({ type: 'offer', roomId, sdp: pc.localDescription.sdp, senderId: clientId, targetId: viewerId })))
       .catch(err => console.error('Offer error:', err));
   }
 
   function handleRemoteAnswer(msg) {
     const pc = peerConnections.get(msg.senderId);
-    if (pc && pc.signalingState === 'have-local-offer') {
-      pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: msg.sdp }))
-        .catch(err => console.error('setRemoteDescription error:', err));
-    }
+    if (pc?.signalingState === 'have-local-offer')
+      pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: msg.sdp })).catch(() => {});
   }
 
   function handleRemoteCandidate(msg) {
     const pc = peerConnections.get(msg.senderId);
-    if (pc) {
-      pc.addIceCandidate(new RTCIceCandidate(msg.candidate))
-        .catch(err => console.error('addIceCandidate error:', err));
-    }
+    if (pc) pc.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(() => {});
   }
 
-  // ── Stats Monitor ──
+  // ── Stats ──
   function startStatsMonitor() {
     clearInterval(statsInterval);
-    let prevBytesSent = 0;
-    let prevTimestamp = 0;
+    let prevBytesSent = 0, prevTimestamp = 0;
     statsInterval = setInterval(async () => {
       for (const [, pc] of peerConnections) {
         try {
@@ -516,22 +484,20 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
             if (report.type === 'outbound-rtp' && report.kind === 'video') {
               const track = localStream?.getVideoTracks()[0];
               if (track) {
-                const settings = track.getSettings();
-                $('statRes').textContent = `${settings.width||'-'}×${settings.height||'-'}`;
-                $('statFps').textContent = settings.frameRate ? Math.round(settings.frameRate) : '-';
+                const s = track.getSettings();
+                $('statRes').textContent = `${s.width||'-'}×${s.height||'-'}`;
+                $('statFps').textContent = s.frameRate ? Math.round(s.frameRate) : '-';
               }
               if (prevTimestamp > 0) {
                 const dt = (report.timestamp - prevTimestamp) / 1000;
-                const dBytes = report.bytesSent - prevBytesSent;
-                const kbps = Math.round((dBytes * 8) / dt / 1000);
-                $('statBitrate').textContent = kbps;
+                $('statBitrate').textContent = Math.round(((report.bytesSent - prevBytesSent) * 8) / dt / 1000);
               }
               prevBytesSent = report.bytesSent;
               prevTimestamp = report.timestamp;
             }
           });
         } catch(e) {}
-        break; // stats from first peer is enough
+        break;
       }
     }, 2000);
   }
@@ -539,18 +505,9 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   // ── Button Handlers ──
   btnStart.addEventListener('click', startCamera);
   btnStop.addEventListener('click', stopCamera);
+  $('fabStop').addEventListener('click', stopCamera);
 
-  btnAudio.addEventListener('click', () => {
-    audioEnabled = !audioEnabled;
-    btnAudio.textContent = audioEnabled ? '🔊 Audio On' : '🔇 Audio Off';
-    btnAudio.classList.toggle('active', audioEnabled);
-    if (localStream) {
-      const audioTracks = localStream.getAudioTracks();
-      audioTracks.forEach(t => t.enabled = audioEnabled);
-    }
-  });
-
-  btnFlip.addEventListener('click', async () => {
+  function doFlip() {
     facingMode = facingMode === 'environment' ? 'user' : 'environment';
     if (localStream) {
       localStream.getTracks().forEach(t => t.stop());
@@ -559,29 +516,41 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       const orientation = $('selOrientation').value;
       const w = orientation === 'portrait' ? Math.min(baseW, baseH) : Math.max(baseW, baseH);
       const h = orientation === 'portrait' ? Math.max(baseW, baseH) : Math.min(baseW, baseH);
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-          video: { width:{ideal:w}, height:{ideal:h}, frameRate:{ideal:fps}, facingMode },
-          audio: audioEnabled
-        });
-        localVideo.srcObject = localStream;
-        const videoTrack = localStream.getVideoTracks()[0];
+      navigator.mediaDevices.getUserMedia({
+        video: { width:{ideal:w}, height:{ideal:h}, frameRate:{ideal:fps}, facingMode },
+        audio: audioEnabled
+      }).then(stream => {
+        localStream = stream;
+        localVideo.srcObject = stream;
+        const videoTrack = stream.getVideoTracks()[0];
         for (const [, pc] of peerConnections) {
           const sender = pc.getSenders().find(s => s.track?.kind === 'video');
           if (sender && videoTrack) sender.replaceTrack(videoTrack);
         }
-      } catch(e) { toast('❌ Flip failed: ' + e.message, 'error'); }
+      }).catch(e => toast('❌ Flip failed: ' + e.message, 'error'));
     }
-  });
+  }
 
-  // Fit mode change (live)
-  $('selFit').addEventListener('change', () => {
-    localVideo.style.objectFit = $('selFit').value;
-  });
+  function doAudioToggle() {
+    audioEnabled = !audioEnabled;
+    btnAudio.textContent = audioEnabled ? '🔊 Audio On' : '🔇 Audio Off';
+    btnAudio.classList.toggle('active', audioEnabled);
+    $('fabAudio').textContent = audioEnabled ? '🔊' : '🔇';
+    $('fabAudio').classList.toggle('active', audioEnabled);
+    if (localStream) localStream.getAudioTracks().forEach(t => t.enabled = audioEnabled);
+  }
+
+  btnFlip.addEventListener('click', doFlip);
+  $('fabFlip').addEventListener('click', doFlip);
+  btnAudio.addEventListener('click', doAudioToggle);
+  $('fabAudio').addEventListener('click', doAudioToggle);
 
   // Init
   enumCameras();
   navigator.mediaDevices?.addEventListener('devicechange', enumCameras);
+
+  // Auto-open panel on first load
+  togglePanel(true);
 })();
 </script>
 </body>
