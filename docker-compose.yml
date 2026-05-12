@@ -1,0 +1,37 @@
+services:
+  signaling:
+    build:
+      context: .
+      dockerfile: signaling/Dockerfile
+    container_name: webrtc-signaling
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+      - ROOM_TOKEN=${ROOM_TOKEN:-}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-}
+      - MAX_VIEWERS=${MAX_VIEWERS:-5}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - RECORD_DIR=/data/records
+    volumes:
+      - records:/data/records
+    networks:
+      - webrtc-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+
+volumes:
+  records:
+
+networks:
+  webrtc-net:
+    driver: bridge

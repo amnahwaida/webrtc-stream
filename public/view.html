@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebRTC Viewer - Live Stream</title>
+<meta name="description" content="WebRTC low-latency stream viewer for LAN">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#08080d;--surface:#111118;--surface2:#1a1a26;--border:#252535;
+  --text:#e8e8f0;--text2:#7a7a90;--accent:#6c5ce7;--accent2:#a29bfe;
+  --green:#00e5a0;--red:#ff4757;--orange:#ffa502;--cyan:#00d2d3;
+  --radius:14px;--glass:rgba(17,17,24,0.88);
+}
+html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+.app{display:flex;flex-direction:column;height:100vh}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;background:var(--glass);backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);z-index:20;flex-shrink:0;
+}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar h1{font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--accent2),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.live-badge{
+  display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
+  padding:4px 12px;border-radius:20px;background:rgba(255,71,87,.15);color:var(--red);
+  border:1px solid rgba(255,71,87,.3);text-transform:uppercase;letter-spacing:.8px;
+}
+.live-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--red)}
+.live-badge.active{background:rgba(0,229,160,.12);color:var(--green);border-color:rgba(0,229,160,.3)}
+.live-badge.active .dot{background:var(--green);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.topbar-right{display:flex;gap:8px}
+.icon-btn{
+  width:36px;height:36px;border:1px solid var(--border);border-radius:10px;
+  background:var(--surface2);color:var(--text2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  transition:all .2s;
+}
+.icon-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.video-area{flex:1;position:relative;background:#000;display:flex;align-items:center;justify-content:center}
+#remoteVideo{width:100%;height:100%;object-fit:contain;background:#000}
+.waiting{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:20px;
+  background:radial-gradient(ellipse at center,rgba(108,92,231,.08),transparent 70%);
+}
+.waiting.hidden{display:none}
+.spinner{width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.waiting h2{font-size:18px;color:var(--text2);font-weight:500}
+.waiting p{font-size:13px;color:var(--text2);opacity:.6}
+.stats-panel{
+  position:absolute;top:12px;right:12px;
+  background:var(--glass);backdrop-filter:blur(20px);
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px 16px;min-width:220px;
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+  transition:opacity .3s;z-index:10;
+}
+.stats-panel.hidden{opacity:0;pointer-events:none}
+.stats-panel h3{font-family:'Inter',sans-serif;font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.stat-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.stat-row:last-child{border:none}
+.stat-label{color:var(--text2)}
+.stat-value{color:var(--green);font-weight:500}
+.stat-value.warn{color:var(--orange)}
+.stat-value.bad{color:var(--red)}
+.bottombar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;background:var(--glass);backdrop-filter:blur(24px);
+  border-top:1px solid var(--border);flex-shrink:0;
+}
+.conn-info{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--red)}
+.conn-dot.ok{background:var(--green)}
+.bottom-controls{display:flex;gap:8px}
+.ctrl-btn{
+  padding:8px 16px;border:1px solid var(--border);border-radius:10px;
+  background:var(--surface2);color:var(--text);font-family:inherit;
+  font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;gap:6px;
+}
+.ctrl-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.ctrl-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+  z-index:50;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:90%;max-width:400px}
+.modal h2{font-size:16px;margin-bottom:16px}
+.modal-field{margin-bottom:12px}
+.modal-field label{display:block;font-size:12px;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.modal-field input{
+  width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;
+  background:var(--surface2);color:var(--text);font-family:inherit;font-size:14px;outline:none;
+}
+.modal-field input:focus{border-color:var(--accent)}
+.modal-actions{display:flex;gap:8px;margin-top:16px}
+.modal-actions button{flex:1;padding:12px;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.modal-actions .btn-ok{background:var(--accent);color:#fff}
+.modal-actions .btn-cancel{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.app.fullscreen .topbar,.app.fullscreen .bottombar{opacity:0;transition:opacity .3s}
+.app.fullscreen:hover .topbar,.app.fullscreen:hover .bottombar{opacity:1}
+.toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(40px);
+  padding:10px 20px;border-radius:10px;font-size:13px;font-weight:500;
+  background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  z-index:100;transition:transform .3s,opacity .3s;opacity:0;
+  backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.4);
+}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+#debugLog{position:fixed;bottom:60px;left:10px;right:10px;max-height:150px;overflow-y:auto;
+  background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;
+  padding:8px;border-radius:8px;z-index:200;display:none;white-space:pre-wrap;word-break:break-all}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>WebRTC Viewer</h1>
+      <div class="live-badge" id="liveBadge"><span class="dot"></span>OFFLINE</div>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" id="btnStats" title="Toggle Stats">📊</button>
+      <button class="icon-btn" id="btnConfig" title="Settings">⚙️</button>
+      <button class="icon-btn" id="btnDebug" title="Debug Log">🐛</button>
+      <button class="icon-btn" id="btnFullscreen" title="Fullscreen">⛶</button>
+    </div>
+  </div>
+  <div class="video-area">
+    <video id="remoteVideo" autoplay playsinline></video>
+    <div class="waiting" id="waiting">
+      <div class="spinner"></div>
+      <h2>Waiting for stream...</h2>
+      <p id="waitMsg">Connecting to signaling server</p>
+    </div>
+    <div class="stats-panel hidden" id="statsPanel">
+      <h3>Stream Statistics</h3>
+      <div class="stat-row"><span class="stat-label">Resolution</span><span class="stat-value" id="sRes">-</span></div>
+      <div class="stat-row"><span class="stat-label">FPS</span><span class="stat-value" id="sFps">-</span></div>
+      <div class="stat-row"><span class="stat-label">Bitrate</span><span class="stat-value" id="sBitrate">-</span></div>
+      <div class="stat-row"><span class="stat-label">RTT</span><span class="stat-value" id="sRtt">-</span></div>
+      <div class="stat-row"><span class="stat-label">Packets Lost</span><span class="stat-value" id="sLost">-</span></div>
+      <div class="stat-row"><span class="stat-label">Jitter</span><span class="stat-value" id="sJitter">-</span></div>
+      <div class="stat-row"><span class="stat-label">Codec</span><span class="stat-value" id="sCodec">-</span></div>
+    </div>
+  </div>
+  <div class="bottombar">
+    <div class="conn-info">
+      <span class="conn-dot" id="connDot"></span>
+      <span id="connText">Disconnected</span>
+    </div>
+    <div class="bottom-controls">
+      <button class="ctrl-btn" id="btnMute">🔊 Unmuted</button>
+      <button class="ctrl-btn" id="btnPip">📌 PiP</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="configModal">
+  <div class="modal">
+    <h2>⚙️ Connection Settings</h2>
+    <div class="modal-field">
+      <label>Room ID</label>
+      <input type="text" id="cfgRoom" value="cam1" placeholder="e.g. cam1">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="cfgCancel">Cancel</button>
+      <button class="btn-ok" id="cfgApply">Connect</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div id="debugLog"></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+
+  // ── Debug Logger ──
+  const debugEl = $('debugLog');
+  function dbg(msg) {
+    const ts = new Date().toISOString().substr(11, 12);
+    const line = `[${ts}] ${msg}`;
+    console.log('[Viewer]', msg);
+    debugEl.textContent += line + '\n';
+    debugEl.scrollTop = debugEl.scrollHeight;
+  }
+
+  // ── State ──
+  let ws = null;
+  let pc = null;
+  let roomId = new URLSearchParams(location.search).get('room') || 'cam1';
+  let clientId = 'v2_' + Math.random().toString(36).substr(2, 8);
+  let publisherId = null;
+  let statsInterval = null;
+  let reconnectTimer = null;
+  let reconnectAttempts = 0;
+  let generation = 0; // Connection generation counter
+  let pendingCandidates = [];
+  let isMuted = false;
+
+  $('cfgRoom').value = roomId;
+  dbg('Viewer initialized, clientId=' + clientId);
+
+  function toast(msg) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  function setConn(status, text) {
+    $('connDot').className = 'conn-dot' + (status === 'ok' ? ' ok' : '');
+    $('connText').textContent = text;
+    const badge = $('liveBadge');
+    if (status === 'ok') {
+      badge.className = 'live-badge active';
+      badge.innerHTML = '<span class="dot"></span>LIVE';
+    } else {
+      badge.className = 'live-badge';
+      badge.innerHTML = '<span class="dot"></span>OFFLINE';
+    }
+  }
+
+  // ── Cleanup ──
+  function destroyPeerConnection() {
+    if (pc) {
+      dbg('Destroying PeerConnection');
+      pc.ontrack = null;
+      pc.onicecandidate = null;
+      pc.oniceconnectionstatechange = null;
+      try { pc.close(); } catch(e) {}
+      pc = null;
+    }
+    pendingCandidates = [];
+    clearInterval(statsInterval);
+    statsInterval = null;
+  }
+
+  // ── Connect with generation tracking ──
+  function connect() {
+    generation++;
+    const myGen = generation;
+    dbg(`connect() gen=${myGen} starting`);
+
+    // Kill any pending reconnect
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+
+    // Close old WS without triggering reconnect (generation mismatch will handle it)
+    if (ws) {
+      dbg(`Closing old WS (gen=${myGen})`);
+      try { ws.close(); } catch(e) {}
+      ws = null;
+    }
+    destroyPeerConnection();
+    publisherId = null;
+
+    $('waiting').classList.remove('hidden');
+    $('waitMsg').textContent = 'Connecting to signaling server...';
+    setConn('off', 'Connecting...');
+
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = location.host;
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token') || '';
+    const wsUrl = `${proto}//${host}/ws${token ? '?token=' + token : ''}`;
+
+    dbg(`Opening WS to ${wsUrl}`);
+
+    let socket;
+    try {
+      socket = new WebSocket(wsUrl);
+    } catch(e) {
+      dbg('WebSocket create error: ' + e.message);
+      scheduleReconnect(myGen);
+      return;
+    }
+
+    ws = socket;
+
+    socket.onopen = () => {
+      if (myGen !== generation) { dbg(`Stale onopen gen=${myGen}, ignoring`); socket.close(); return; }
+      dbg(`WS open (gen=${myGen}), joining room ${roomId}`);
+      reconnectAttempts = 0;
+      $('waitMsg').textContent = 'Joining room...';
+      socket.send(JSON.stringify({ type: 'join', roomId, clientId, role: 'viewer' }));
+    };
+
+    socket.onmessage = (evt) => {
+      if (myGen !== generation) return;
+      try {
+        const msg = JSON.parse(evt.data);
+        handleMessage(msg, myGen);
+      } catch(e) {
+        dbg('Parse error: ' + e.message);
+      }
+    };
+
+    socket.onclose = (evt) => {
+      dbg(`WS closed gen=${myGen} current=${generation} code=${evt.code}`);
+      if (myGen !== generation) {
+        dbg('Stale close event, ignoring');
+        return; // This close is from an old connection, ignore it
+      }
+      ws = null;
+      setConn('off', 'Disconnected');
+      scheduleReconnect(myGen);
+    };
+
+    socket.onerror = () => {
+      dbg(`WS error gen=${myGen}`);
+    };
+  }
+
+  function scheduleReconnect(forGen) {
+    if (forGen !== generation) return; // Don't reconnect for stale generations
+    clearTimeout(reconnectTimer);
+    if (reconnectAttempts < 20) {
+      const delay = Math.min(2000 * Math.pow(1.3, reconnectAttempts), 15000);
+      reconnectAttempts++;
+      dbg(`Reconnecting in ${Math.round(delay)}ms (attempt ${reconnectAttempts})`);
+      $('waitMsg').textContent = `Reconnecting (${reconnectAttempts})...`;
+      $('waiting').classList.remove('hidden');
+      reconnectTimer = setTimeout(() => {
+        if (forGen === generation) connect(); // Only if still current
+      }, delay);
+    } else {
+      $('waitMsg').textContent = 'Connection failed. Refresh to retry.';
+    }
+  }
+
+  // ── Message Handler ──
+  function handleMessage(msg, gen) {
+    if (gen !== generation) return;
+    dbg('Received: ' + msg.type + (msg.senderId ? ' from=' + msg.senderId : ''));
+
+    switch (msg.type) {
+      case 'joined':
+        toast(`✅ Joined room "${msg.roomId}"`);
+        const pub = msg.peers?.find(p => p.role === 'publisher');
+        if (pub) {
+          publisherId = pub.clientId;
+          dbg('Publisher found in room: ' + publisherId);
+          $('waitMsg').textContent = 'Publisher found, waiting for stream offer...';
+        } else {
+          dbg('No publisher in room yet');
+          $('waitMsg').textContent = 'Waiting for publisher...';
+        }
+        setConn('off', pub ? 'Waiting for offer' : 'Waiting for publisher');
+        break;
+
+      case 'peer_joined':
+        if (msg.role === 'publisher') {
+          publisherId = msg.clientId;
+          dbg('Publisher joined: ' + publisherId);
+          toast('📹 Publisher connected');
+          $('waitMsg').textContent = 'Publisher connected, waiting for offer...';
+        }
+        break;
+
+      case 'peer_left':
+        if (msg.clientId === publisherId) {
+          dbg('Publisher left');
+          publisherId = null;
+          destroyPeerConnection();
+          $('remoteVideo').srcObject = null;
+          $('waiting').classList.remove('hidden');
+          $('waitMsg').textContent = 'Publisher disconnected. Waiting...';
+          setConn('off', 'Publisher left');
+          toast('📹 Publisher disconnected');
+        }
+        break;
+
+      case 'offer':
+        dbg('Got OFFER from ' + msg.senderId);
+        publisherId = msg.senderId;
+        handleOffer(msg, gen);
+        break;
+
+      case 'candidate':
+        handleRemoteCandidate(msg);
+        break;
+
+      case 'answer':
+        dbg('Got unexpected answer (viewer should not receive answers)');
+        break;
+
+      case 'error':
+        dbg('Server error: ' + JSON.stringify(msg));
+        toast('❌ ' + msg.message);
+        break;
+
+      case 'server_shutdown':
+        toast('⚠️ Server restarting...');
+        break;
+    }
+  }
+
+  // ── WebRTC ──
+  function handleOffer(msg, gen) {
+    destroyPeerConnection();
+    pendingCandidates = [];
+
+    dbg('Creating PeerConnection for offer');
+
+    pc = new RTCPeerConnection({
+      iceTransportPolicy: 'all'
+    });
+
+    pc.ontrack = (e) => {
+      if (gen !== generation) return;
+      dbg('Got remote track: ' + e.track.kind);
+      $('remoteVideo').srcObject = e.streams[0] || new MediaStream([e.track]);
+      $('waiting').classList.add('hidden');
+      setConn('ok', 'Streaming');
+      toast('🎬 Stream started!');
+      startStats();
+    };
+
+    pc.onicecandidate = (e) => {
+      if (gen !== generation || !ws || ws.readyState !== WebSocket.OPEN) return;
+      if (e.candidate) {
+        ws.send(JSON.stringify({
+          type: 'candidate', roomId, candidate: e.candidate,
+          senderId: clientId, targetId: publisherId
+        }));
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (!pc || gen !== generation) return;
+      const s = pc.iceConnectionState;
+      dbg('ICE state: ' + s);
+      if (s === 'connected' || s === 'completed') {
+        setConn('ok', 'Connected');
+      } else if (s === 'disconnected') {
+        setConn('off', 'ICE disconnected');
+      } else if (s === 'failed') {
+        setConn('off', 'ICE failed');
+        toast('❌ ICE failed, waiting for new offer...');
+        destroyPeerConnection();
+        $('remoteVideo').srcObject = null;
+        $('waiting').classList.remove('hidden');
+        $('waitMsg').textContent = 'ICE failed, waiting for new offer...';
+      }
+    };
+
+    dbg('Setting remote description (offer)');
+    pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: msg.sdp }))
+      .then(() => {
+        dbg('Remote desc set, flushing ' + pendingCandidates.length + ' buffered candidates');
+        pendingCandidates.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}));
+        pendingCandidates = [];
+        return pc.createAnswer();
+      })
+      .then(answer => {
+        dbg('Answer created');
+        return pc.setLocalDescription(answer);
+      })
+      .then(() => {
+        dbg('Sending answer to publisher');
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'answer', roomId, sdp: pc.localDescription.sdp,
+            senderId: clientId, targetId: publisherId
+          }));
+        } else {
+          dbg('ERROR: WS not open when trying to send answer!');
+        }
+      })
+      .catch(err => {
+        dbg('Answer error: ' + err.message);
+        toast('❌ WebRTC negotiation failed');
+      });
+  }
+
+  function handleRemoteCandidate(msg) {
+    if (msg.senderId !== publisherId) return;
+    if (pc && pc.remoteDescription) {
+      pc.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(() => {});
+    } else {
+      pendingCandidates.push(msg.candidate);
+    }
+  }
+
+  // ── Stats ──
+  function startStats() {
+    clearInterval(statsInterval);
+    let prevBytes = 0, prevTs = 0, prevFrames = 0;
+    statsInterval = setInterval(async () => {
+      if (!pc) return;
+      try {
+        const stats = await pc.getStats();
+        stats.forEach(r => {
+          if (r.type === 'inbound-rtp' && r.kind === 'video') {
+            if (r.frameWidth) $('sRes').textContent = `${r.frameWidth}×${r.frameHeight}`;
+            if (prevTs > 0 && r.framesDecoded) {
+              const dt = (r.timestamp - prevTs) / 1000;
+              $('sFps').textContent = Math.round((r.framesDecoded - prevFrames) / dt);
+            }
+            prevFrames = r.framesDecoded || 0;
+            if (prevTs > 0) {
+              const dt = (r.timestamp - prevTs) / 1000;
+              $('sBitrate').textContent = Math.round(((r.bytesReceived - prevBytes) * 8) / dt / 1000) + ' kbps';
+            }
+            prevBytes = r.bytesReceived || 0;
+            prevTs = r.timestamp;
+            if (r.jitter !== undefined) $('sJitter').textContent = (r.jitter * 1000).toFixed(1) + ' ms';
+            if (r.packetsLost !== undefined) $('sLost').textContent = r.packetsLost;
+          }
+          if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.currentRoundTripTime !== undefined) {
+            $('sRtt').textContent = Math.round(r.currentRoundTripTime * 1000) + ' ms';
+          }
+          if (r.type === 'codec' && r.mimeType?.startsWith('video/')) {
+            $('sCodec').textContent = r.mimeType.replace('video/', '');
+          }
+        });
+      } catch(e) {}
+    }, 2000);
+  }
+
+  // ── UI ──
+  $('btnStats').onclick = () => { $('statsPanel').classList.toggle('hidden'); };
+  $('btnDebug').onclick = () => { debugEl.style.display = debugEl.style.display === 'none' ? 'block' : 'none'; };
+  $('btnFullscreen').onclick = () => {
+    if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(()=>{}); $('app').classList.add('fullscreen'); }
+    else { document.exitFullscreen(); $('app').classList.remove('fullscreen'); }
+  };
+  $('btnMute').onclick = () => {
+    isMuted = !isMuted;
+    $('remoteVideo').muted = isMuted;
+    $('btnMute').textContent = isMuted ? '🔇 Muted' : '🔊 Unmuted';
+  };
+  $('btnPip').onclick = async () => {
+    try {
+      if (document.pictureInPictureElement) await document.exitPictureInPicture();
+      else await $('remoteVideo').requestPictureInPicture();
+    } catch(e) { toast('PiP not supported'); }
+  };
+  $('btnConfig').onclick = () => $('configModal').classList.add('show');
+  $('cfgCancel').onclick = () => $('configModal').classList.remove('show');
+  $('cfgApply').onclick = () => {
+    roomId = $('cfgRoom').value.trim() || 'cam1';
+    $('configModal').classList.remove('show');
+    reconnectAttempts = 0;
+    dbg('Manual reconnect to room: ' + roomId);
+    connect();
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'f') $('btnFullscreen').click();
+    if (e.key === 's') $('btnStats').click();
+    if (e.key === 'm') $('btnMute').click();
+    if (e.key === 'd') $('btnDebug').click();
+  });
+
+  // ── Start ──
+  $('remoteVideo').muted = false;
+  connect();
+})();
+</script>
+</body>
+</html>
