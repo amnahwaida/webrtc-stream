@@ -32,7 +32,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 
 /* Video Container */
 .video-wrap{flex:1;position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
-#localVideo{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#localVideo{width:100%;height:100%;object-fit:contain;background:#000}
 .video-overlay{
   position:absolute;bottom:0;left:0;right:0;
   padding:16px;background:linear-gradient(transparent,rgba(0,0,0,.7));
@@ -160,12 +160,28 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
     </div>
     <div class="config-row">
       <div class="config-item">
+        <label>Orientation</label>
+        <select id="selOrientation">
+          <option value="landscape" selected>📺 Landscape</option>
+          <option value="portrait">📱 Portrait</option>
+        </select>
+      </div>
+      <div class="config-item">
         <label>Camera</label>
         <select id="selCamera"><option>Loading...</option></select>
       </div>
+    </div>
+    <div class="config-row">
       <div class="config-item">
         <label>Room ID</label>
         <input type="text" id="inputRoom" value="cam1" placeholder="e.g. cam1">
+      </div>
+      <div class="config-item">
+        <label>Video Fit</label>
+        <select id="selFit">
+          <option value="contain" selected>Contain (full)</option>
+          <option value="cover">Cover (fill)</option>
+        </select>
       </div>
     </div>
     <div class="controls-row">
@@ -253,8 +269,12 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 
   // ── Get Media ──
   async function startCamera() {
-    const [w, h] = selRes.value.split('x').map(Number);
+    const [baseW, baseH] = selRes.value.split('x').map(Number);
     const fps = parseInt(selFps.value);
+    const orientation = $('selOrientation').value;
+    // Swap width/height for portrait mode
+    const w = orientation === 'portrait' ? Math.min(baseW, baseH) : Math.max(baseW, baseH);
+    const h = orientation === 'portrait' ? Math.max(baseW, baseH) : Math.min(baseW, baseH);
     const constraints = {
       video: {
         width: { ideal: w }, height: { ideal: h },
@@ -263,10 +283,12 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
       },
       audio: audioEnabled
     };
-    if (selCamera.value) {
+    if (selCamera.value && selCamera.value !== 'Loading...') {
       constraints.video.deviceId = { exact: selCamera.value };
       delete constraints.video.facingMode;
     }
+    // Apply video fit mode
+    localVideo.style.objectFit = $('selFit').value;
 
     try {
       if (localStream) {
@@ -530,19 +552,19 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 
   btnFlip.addEventListener('click', async () => {
     facingMode = facingMode === 'environment' ? 'user' : 'environment';
-    localVideo.style.transform = facingMode === 'user' ? 'scaleX(-1)' : 'none';
     if (localStream) {
-      // Restart camera with new facing
       localStream.getTracks().forEach(t => t.stop());
-      const [w, h] = selRes.value.split('x').map(Number);
+      const [baseW, baseH] = selRes.value.split('x').map(Number);
       const fps = parseInt(selFps.value);
+      const orientation = $('selOrientation').value;
+      const w = orientation === 'portrait' ? Math.min(baseW, baseH) : Math.max(baseW, baseH);
+      const h = orientation === 'portrait' ? Math.max(baseW, baseH) : Math.min(baseW, baseH);
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
           video: { width:{ideal:w}, height:{ideal:h}, frameRate:{ideal:fps}, facingMode },
           audio: audioEnabled
         });
         localVideo.srcObject = localStream;
-        // Replace tracks in peer connections
         const videoTrack = localStream.getVideoTracks()[0];
         for (const [, pc] of peerConnections) {
           const sender = pc.getSenders().find(s => s.track?.kind === 'video');
@@ -550,6 +572,11 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
         }
       } catch(e) { toast('❌ Flip failed: ' + e.message, 'error'); }
     }
+  });
+
+  // Fit mode change (live)
+  $('selFit').addEventListener('change', () => {
+    localVideo.style.objectFit = $('selFit').value;
   });
 
   // Init
