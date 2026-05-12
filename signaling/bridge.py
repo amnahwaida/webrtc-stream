@@ -4,7 +4,10 @@ import logging
 import os
 import cv2
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
-from aiortc.sdk.media import MediaPlayer
+try:
+    from aiortc.contrib.media import MediaPlayer
+except ImportError:
+    from aiortc.sdk.media import MediaPlayer
 import aiohttp
 from fractions import Fraction
 
