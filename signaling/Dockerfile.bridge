@@ -1,7 +1,10 @@
 FROM python:3.11-slim
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Gunakan mirror yang lebih stabil dan tambahkan retry
+RUN echo "deb http://deb.debian.org/debian bookworm main\ndeb http://deb.debian.org/debian-security bookworm-security main\ndeb http://deb.debian.org/debian bookworm-updates main" > /etc/apt/sources.list
+
+RUN apt-get update || (sleep 5 && apt-get update) && \
+    apt-get install -y --no-install-recommends \
     ffmpeg \
     libsm6 \
     libxext6 \
@@ -11,13 +14,13 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Install Python dependencies
-RUN pip install --no-cache-dir \
+# Upgrade pip dan install dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir \
     aiortc \
     aiohttp \
     opencv-python-headless
 
-# Copy script
 COPY signaling/bridge.py .
 
 CMD ["python", "bridge.py"]
