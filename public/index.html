@@ -518,6 +518,8 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
           enc.maxFramerate = 30;
           enc.networkPriority = 'high';
           enc.priority = 'high';
+          // Optimasi: Paksa mode L1T1 (lapisan tunggal) untuk encoding tercepat
+          try { enc.scalabilityMode = 'L1T1'; } catch(e) {}
         });
         params.degradationPreference = 'maintain-framerate';
         sender.setParameters(params).catch(() => {});
