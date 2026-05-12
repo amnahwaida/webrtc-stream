@@ -679,7 +679,9 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
   updateSources();
 
   // ── Start ──
-  $('remoteVideo').muted = true; // Wajib true agar Autoplay di OBS jalan
+  // Hanya mute jika mode OBS (clean), viewer biasa harus bisa dengar audio
+  const isCleanMode = new URLSearchParams(location.search).get('clean') === 'true';
+  $('remoteVideo').muted = isCleanMode;
   connect();
 })();
 </script>
