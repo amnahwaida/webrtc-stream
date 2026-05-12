@@ -312,10 +312,6 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 
     if (isClean) {
       document.body.classList.add('clean-mode');
-      $('topbar').style.display = 'none';
-      $('footer').style.display = 'none';
-      $('debugLog').style.display = 'none';
-      $('statsPanel').style.opacity = '0.5'; 
     }
 
     const token = urlParams.get('token') || '';
