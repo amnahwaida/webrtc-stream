@@ -598,19 +598,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
       return `a=fmtp:${pt} ${fmtp};x-google-start-bitrate=2500;x-google-min-bitrate=2000`;
     });
 
-    // 3. SDP Pruning: Hapus codec video yang tidak perlu (seperti VP9/AV1) jika VP8 ada
-    // Ini membantu decoder OBS langsung mengunci codec yang diinginkan
-    const lines = sdp.split('\r\n');
-    const prunedLines = lines.filter(line => {
-      if (line.includes('m=video') || line.includes('a=rtpmap') || line.includes('a=fmtp')) {
-        // Hanya izinkan VP8, H264, dan Opus. AV1/VP9 sering menambah latency di ARM STB.
-        return line.includes('VP8') || line.includes('H264') || line.includes('opus') || 
-               line.includes('m=video') || line.includes('m=audio') || line.includes('rtcp-fb');
-      }
-      return true;
-    });
-    
-    return prunedLines.join('\r\n');
+    return sdp;
   }
 
   function createPeerConnection(viewerId) {
