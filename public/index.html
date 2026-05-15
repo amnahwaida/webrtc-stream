@@ -483,23 +483,17 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   }
 
   // ── WebRTC ──
-  // SDP munging: optimasi ultra-deep untuk latensi
+  // SDP optimization - hanya optimasi Opus yang aman, tidak memanipulasi video SDP
+  // PENTING: Regex video SDP (fmtp:96, pruning VP8/VP9) telah dihapus karena
+  // menyebabkan korupsi SDP di OBS Browser Source (CEF). Payload type tidak selalu 96,
+  // dan OBS CEF sering gagal decode H264 hardware. Biarkan browser negosiasi codec sendiri.
   function optimizeSdp(sdp) {
-    // 1. Opus: dtx, cbr, ptime=10
+    // Opus audio optimization saja (aman, tidak mempengaruhi video)
     sdp = sdp.replace(
       /(a=fmtp:\d+ [^\r\n]*useinbandfec=1)/g,
       '$1;usedtx=1;stereo=0;sprop-stereo=0;cbr=1;maxaveragebitrate=64000;maxplaybackrate=48000;ptime=10'
     );
-    // 2. Video: Langsung "tancap gas" bitrate tinggi (start=2500) agar tidak ada ramp-up delay
-    sdp = sdp.replace(/a=mid:video\r\n/g, 'a=mid:video\r\na=fmtp:96 x-google-min-bitrate=1000;x-google-start-bitrate=2500;x-google-max-bitrate=5000\r\n');
-    
-    // 3. SDP Pruning: Buang codec selain H264 dan Opus agar paket signaling kecil & cepat
-    const lines = sdp.split('\r\n');
-    const filtered = lines.filter(line => {
-      if (line.includes('video/VP8') || line.includes('video/VP9') || line.includes('video/AV1')) return false;
-      return true;
-    });
-    return filtered.join('\r\n');
+    return sdp;
   }
 
   function createPeerConnection(viewerId) {
@@ -507,15 +501,17 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
     peerConnections.set(viewerId, pc);
     if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-    // Prefer H.264 (Baseline profile = tanpa B-frames = latensi lebih rendah)
+    // Prefer VP8 terlebih dahulu karena OBS CEF sering gagal hardware-decode H264 dari HP.
+    // VP8 = software codec universal yang pasti didukung semua browser termasuk OBS CEF.
+    // H264 tetap ada sebagai fallback untuk viewer non-OBS.
     const transceivers = pc.getTransceivers();
     transceivers.forEach(t => {
       if (t.sender?.track?.kind === 'video') {
         const codecs = RTCRtpSender.getCapabilities('video')?.codecs || [];
-        const h264Baseline = codecs.filter(c => c.mimeType === 'video/H264' && (c.sdpFmtpLine || '').includes('42e0'));
-        const h264Other = codecs.filter(c => c.mimeType === 'video/H264' && !(c.sdpFmtpLine || '').includes('42e0'));
-        const others = codecs.filter(c => c.mimeType !== 'video/H264');
-        const preferred = [...h264Baseline, ...h264Other, ...others];
+        const vp8 = codecs.filter(c => c.mimeType === 'video/VP8');
+        const h264 = codecs.filter(c => c.mimeType === 'video/H264');
+        const others = codecs.filter(c => c.mimeType !== 'video/VP8' && c.mimeType !== 'video/H264');
+        const preferred = [...vp8, ...h264, ...others];
         if (preferred.length) try { t.setCodecPreferences(preferred); } catch(e) {}
       }
       // Prioritaskan Opus untuk audio (latensi terendah)
@@ -652,27 +648,43 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   $('fabStop').addEventListener('click', stopCamera);
 
   function doFlip() {
-    facingMode = facingMode === 'environment' ? 'user' : 'environment';
     if (localStream) {
       localStream.getTracks().forEach(t => t.stop());
-      const [baseW, baseH] = selRes.value.split('x').map(Number);
-      const fps = parseInt(selFps.value);
-      const orientation = $('selOrientation').value;
-      const w = orientation === 'portrait' ? Math.min(baseW, baseH) : Math.max(baseW, baseH);
-      const h = orientation === 'portrait' ? Math.max(baseW, baseH) : Math.min(baseW, baseH);
-      navigator.mediaDevices.getUserMedia({
-        video: { width:{ideal:w}, height:{ideal:h}, frameRate:{ideal:fps}, facingMode },
-        audio: audioEnabled
-      }).then(stream => {
-        localStream = stream;
-        localVideo.srcObject = stream;
-        const videoTrack = stream.getVideoTracks()[0];
-        for (const [, pc] of peerConnections) {
-          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-          if (sender && videoTrack) sender.replaceTrack(videoTrack);
-        }
-      }).catch(e => toast('❌ Flip failed: ' + e.message, 'error'));
     }
+    
+    // Cycle camera source jika device list tersedia
+    if (selCamera.options.length > 1) {
+      selCamera.selectedIndex = (selCamera.selectedIndex + 1) % selCamera.options.length;
+    } else {
+      facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    }
+
+    const [baseW, baseH] = selRes.value.split('x').map(Number);
+    const fps = parseInt(selFps.value);
+    const orientation = $('selOrientation').value;
+    const w = orientation === 'portrait' ? Math.min(baseW, baseH) : Math.max(baseW, baseH);
+    const h = orientation === 'portrait' ? Math.max(baseW, baseH) : Math.min(baseW, baseH);
+    
+    const constraints = {
+      video: { width:{ideal:w}, height:{ideal:h}, frameRate:{ideal:fps} },
+      audio: audioEnabled
+    };
+    
+    if (selCamera.options.length > 0 && selCamera.value !== 'Loading...') {
+      constraints.video.deviceId = { exact: selCamera.value };
+    } else {
+      constraints.video.facingMode = facingMode;
+    }
+
+    navigator.mediaDevices.getUserMedia(constraints).then(stream => {
+      localStream = stream;
+      localVideo.srcObject = stream;
+      const videoTrack = stream.getVideoTracks()[0];
+      for (const [, pc] of peerConnections) {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender && videoTrack) sender.replaceTrack(videoTrack);
+      }
+    }).catch(e => toast('❌ Flip failed: ' + e.message, 'error'));
   }
 
   // Audio toggle sekarang sangat sederhana: hanya enable/disable track

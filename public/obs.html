@@ -11,14 +11,7 @@
 </style>
 </head>
 <body>
-<video id="video" autoplay playsinline muted></video>
-<!-- Overlay unmute -->
-<div id="unmuteOverlay" style="position:fixed;inset:0;z-index:15;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);cursor:pointer">
-  <div style="text-align:center;color:#fff;padding:24px 40px;border-radius:16px;background:rgba(108,92,231,0.8)">
-    <span style="font-size:48px">🔇</span>
-    <p style="margin-top:8px;font-size:16px;font-weight:600">Klik untuk aktifkan suara</p>
-  </div>
-</div>
+<video id="video" autoplay playsinline></video>
 <!-- Version indicator -->
 <div style="position:fixed;bottom:4px;right:4px;font-size:9px;color:rgba(255,255,255,0.3);z-index:5">v7</div>
 <script>
@@ -27,7 +20,6 @@
   const roomId = params.get('room') || 'cam1';
   const clientId = 'obs_' + Math.random().toString(36).substr(2, 8);
   const vid = document.getElementById('video');
-  const overlay = document.getElementById('unmuteOverlay');
 
   const stunHost = location.hostname;
   const rtcConfig = {
@@ -43,15 +35,6 @@
 
   let ws, pc, publisherId;
   let pendingCandidates = [];
-
-  // ── Unmute: klik di mana saja ──
-  function doUnmute() {
-    vid.muted = false;
-    overlay.style.display = 'none';
-  }
-  overlay.onclick = doUnmute;
-  vid.onclick = doUnmute;
-  document.body.onclick = function() { if (vid.muted) doUnmute(); };
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -110,12 +93,10 @@
 
     pc.ontrack = (e) => {
       vid.srcObject = e.streams[0] || new MediaStream([e.track]);
+      // OBS CEF mengabaikan atribut autoplay HTML, perlu panggil .play() secara eksplisit
+      vid.play().catch(() => {});
       // Optimasi: render video tanpa buffering
       try { vid.latencyHint = 0; } catch(err) {}
-      // Tampilkan overlay unmute saat stream mulai
-      if (vid.muted) {
-        overlay.style.display = 'flex';
-      }
       // Optimasi Latensi
       if (e.receiver) {
         try {

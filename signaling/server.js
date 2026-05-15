@@ -171,14 +171,25 @@ if (sslOptions) {
   // HTTPS server (main)
   server = https.createServer(sslOptions, handleRequest);
 
-  // HTTP redirect server
-  const redirectServer = http.createServer((req, res) => {
-    const host = (req.headers.host || '').replace(/:\d+$/, '');
-    res.writeHead(301, { Location: `https://${host}:${PORT}${req.url}` });
-    res.end();
+  // HTTP server untuk OBS Browser Source (CEF tidak bisa pakai self-signed HTTPS)
+  // Port 3080 melayani file dan WebSocket secara penuh, BUKAN redirect.
+  const httpServer = http.createServer(handleRequest);
+  httpServer.listen(HTTP_PORT, '0.0.0.0', () => {
+    log('info', `HTTP server (for OBS) on port ${HTTP_PORT}`);
   });
-  redirectServer.listen(HTTP_PORT, '0.0.0.0', () => {
-    log('info', `HTTP redirect server on port ${HTTP_PORT}`);
+
+  // Attach WebSocket ke HTTP server juga (agar OBS bisa connect via ws://)
+  const wssHttp = new WebSocketServer({ noServer: true });
+  httpServer.on('upgrade', (req, socket, head) => {
+    const pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
+    if (pathname === '/ws') {
+      wssHttp.handleUpgrade(req, socket, head, (ws) => {
+        // Re-emit ke handler yang sama dengan HTTPS WSS
+        wss.emit('connection', ws, req);
+      });
+    } else {
+      socket.destroy();
+    }
   });
 } else {
   // HTTP only fallback
