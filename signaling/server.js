@@ -329,6 +329,8 @@ wss.on('connection', (ws, req) => {
       case 'leave':
         handleLeave(ws, msg);
         break;
+      case 'audio_status':
+      case 'request_audio_status':
       case 'control':
         handleControl(ws, msg);
         break;

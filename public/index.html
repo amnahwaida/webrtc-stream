@@ -480,6 +480,25 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
         if (msg.command === 'toggle_audio') {
           toast('🎙️ Remote mic toggle requested');
           doAudioToggle();
+        } else if (msg.command === 'flip_camera') {
+          toast('🔄 Remote camera flip requested');
+          doFlip();
+        }
+        break;
+      case 'request_audio_status':
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          // Cek kondisi ASLI dari track mikrofon
+          let actualEnabled = audioEnabled;
+          if (localStream && localStream.getAudioTracks().length > 0) {
+            actualEnabled = localStream.getAudioTracks()[0].enabled;
+          }
+          
+          ws.send(JSON.stringify({
+            type: 'audio_status',
+            roomId,
+            enabled: actualEnabled,
+            targetId: msg.senderId
+          }));
         }
         break;
       case 'error': toast(`❌ ${msg.message}`, 'error'); break;
@@ -711,9 +730,21 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
     btnAudio.classList.toggle('active', audioEnabled);
     $('fabAudio').textContent = audioEnabled ? '🔊' : '🔇';
     $('fabAudio').classList.toggle('active', audioEnabled);
+    
     if (localStream) {
-      localStream.getAudioTracks().forEach(t => t.enabled = audioEnabled);
+      localStream.getAudioTracks().forEach(t => {
+        t.enabled = audioEnabled;
+      });
       toast(audioEnabled ? '🎙️ Mikrofon aktif' : '🔇 Mikrofon mati');
+    }
+
+    // Broadcast status ke semua viewer
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'audio_status',
+        roomId,
+        enabled: audioEnabled
+      }));
     }
   }
 

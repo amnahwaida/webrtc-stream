@@ -80,6 +80,9 @@ html,body{height:100%;font-family:var(--font-main),system-ui,sans-serif;backgrou
 .conn-info{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
 .conn-dot{width:8px;height:8px;border-radius:50%;background:var(--red)}
 .conn-dot.ok{background:var(--green)}
+.audio-badge{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;text-transform:uppercase;margin-left:4px}
+.audio-badge.on{background:rgba(0,210,106,0.15);color:var(--green);border:1px solid rgba(0,210,106,0.2)}
+.audio-badge.off{background:rgba(255,71,87,0.15);color:var(--red);border:1px solid rgba(255,71,87,0.2)}
 .bottom-controls{display:flex;gap:8px}
 .ctrl-btn{
   padding:8px 16px;border:1px solid var(--border);border-radius:10px;
@@ -200,8 +203,10 @@ body.clean-mode #remoteVideo {
     <div class="conn-info">
       <span class="conn-dot" id="connDot"></span>
       <span id="connText">Disconnected</span>
+      <span id="audioStatusBadge" class="audio-badge" style="background:rgba(255,255,255,0.1);color:#aaa">🔄 SYNC...</span>
     </div>
     <div class="bottom-controls">
+      <button class="ctrl-btn" id="btnRemoteFlip" title="Flip Publisher Camera">🔄 Flip Cam</button>
       <button class="ctrl-btn" id="btnRemoteMic" title="Toggle Publisher Microphone">🎙️ Remote Mic</button>
       <button class="ctrl-btn" id="btnMute">🔇 Klik Unmute</button>
       <button class="ctrl-btn" id="btnPip">📌 PiP</button>
@@ -442,6 +447,15 @@ body.clean-mode #remoteVideo {
           $('waitMsg').textContent = 'Waiting for publisher...';
         }
         setConn('off', pub ? 'Waiting for offer' : 'Waiting for publisher');
+        
+        // Minta status audio awal ke publisher dengan jeda agar koneksi stabil
+        if (pub && ws && ws.readyState === WebSocket.OPEN) {
+          setTimeout(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'request_audio_status', roomId, targetId: pub.clientId, senderId: clientId }));
+            }
+          }, 1500);
+        }
         break;
 
       case 'peer_joined':
@@ -463,6 +477,17 @@ body.clean-mode #remoteVideo {
           $('waitMsg').textContent = 'Publisher disconnected. Waiting...';
           setConn('off', 'Publisher left');
           toast('📹 Publisher disconnected');
+        }
+        break;
+
+      case 'audio_status':
+        const badge = $('audioStatusBadge');
+        if (msg.enabled) {
+          badge.textContent = '🎙️ MIC ON';
+          badge.className = 'audio-badge on';
+        } else {
+          badge.textContent = '🔇 MIC OFF';
+          badge.className = 'audio-badge off';
         }
         break;
 
@@ -514,6 +539,29 @@ body.clean-mode #remoteVideo {
         if (t.kind === e.track.kind) stream.removeTrack(t);
       });
       stream.addTrack(e.track);
+      
+      // Monitor status Audio
+      if (e.track.kind === 'audio') {
+        const updateAudioUI = () => {
+          const badge = $('audioStatusBadge');
+          if (e.track.enabled && !e.track.muted) {
+            badge.textContent = '🎙️ MIC ON';
+            badge.className = 'audio-badge on';
+          } else {
+            badge.textContent = '🔇 MIC OFF';
+            badge.className = 'audio-badge off';
+          }
+        };
+        e.track.onmute = updateAudioUI;
+        e.track.onunmute = updateAudioUI;
+        e.track.onended = updateAudioUI;
+        updateAudioUI();
+        
+        // Secondary sync request saat track diterima
+        if (ws && ws.readyState === WebSocket.OPEN && publisherId) {
+          ws.send(JSON.stringify({ type: 'request_audio_status', roomId, targetId: publisherId, senderId: clientId }));
+        }
+      }
       // Optimasi: minta browser render video tanpa buffering
       try { $('remoteVideo').latencyHint = 0; } catch(err) {}
       $('waiting').classList.add('hidden');
@@ -694,6 +742,19 @@ body.clean-mode #remoteVideo {
       command: 'toggle_audio'
     }));
     toast('🎙️ Toggling publisher mic...');
+  };
+
+  $('btnRemoteFlip').onclick = () => {
+    if (!publisherId) return toast('⚠️ No publisher connected');
+    if (!ws || ws.readyState !== WebSocket.OPEN) return toast('⚠️ Not connected to server');
+    ws.send(JSON.stringify({
+      type: 'control',
+      roomId: roomId,
+      targetId: publisherId,
+      senderId: clientId,
+      command: 'flip_camera'
+    }));
+    toast('🔄 Flipping publisher camera...');
   };
 
   $('btnPip').onclick = async () => {
