@@ -444,6 +444,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
         t.enabled = audioEnabled;  // Matikan audio sampai user nyalakan
       });
       localVideo.srcObject = localStream;
+      
+      // HARDCORE: Set contentHint ke 'motion' agar browser membuang frame (drop) 
+      // daripada mengantre (queue) jika CPU/Network lambat. Ini mencegah delay yang menumpuk.
+      localStream.getVideoTracks().forEach(track => {
+        if ('contentHint' in track) track.contentHint = 'motion';
+      });
       // Optimasi: minta browser render preview tanpa buffering
       try { localVideo.latencyHint = 0; } catch(e) {}
       placeholder.classList.add('hidden');
@@ -598,10 +604,13 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
       return `a=fmtp:${pt} ${fmtp};x-google-start-bitrate=2500;x-google-min-bitrate=2000;x-google-max-bitrate=5000;x-google-priority=1;goog-complexity=0`;
     });
 
-    // 3. Menghapus rtcp-fb: goog-remb dan transport-cc yang kadang menambah overhead di LAN
-    // sdp = sdp.replace(/a=rtcp-fb:(\d+) goog-remb\r\n/g, ''); 
+    // 3. Menghapus rtcp-fb: goog-remb dan transport-cc untuk mengurangi bandwidth overhead di LAN
+    const lines = sdp.split('\r\n');
+    const filteredLines = lines.filter(line => {
+      return !line.includes('goog-remb') && !line.includes('transport-cc');
+    });
     
-    return sdp;
+    return filteredLines.join('\r\n');
   }
 
   function createPeerConnection(viewerId) {

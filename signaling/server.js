@@ -274,7 +274,11 @@ function handleAPI(req, res, pathname, query) {
 }
 
 // ── WebSocket Signaling Server ─────────────────────────────────
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ 
+  server, 
+  path: '/ws',
+  perMessageDeflate: false 
+});
 
 wss.on('connection', (ws, req) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
