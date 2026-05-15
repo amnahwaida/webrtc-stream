@@ -240,15 +240,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   const $ = id => document.getElementById(id);
   const localVideo = $('localVideo');
   const btnStart = $('btnStart'), btnScreen = $('btnScreen'), btnStop = $('btnStop');
+  const btnAudio = $('btnAudio'), btnFlip = $('btnFlip');
   const placeholder = $('placeholder'), statsOverlay = $('statsOverlay');
-  const selRes = $('selRes');
-  const selFps = $('selFps');
-  const selCamera = $('selCamera');
-  const inputRoom = $('inputRoom');
-  const statsOverlay = $('statsOverlay');
-  const statusBar = $('statusBar');
-  const controlsPanel = $('controlsPanel');
-  const fabToggle = $('fabToggle');
+  const selRes = $('selRes'), selFps = $('selFps'), selCamera = $('selCamera');
+  const inputRoom = $('inputRoom'), statusBar = $('statusBar');
+  const controlsPanel = $('controlsPanel'), fabToggle = $('fabToggle');
 
   let localStream = null;
   let ws = null;
