@@ -540,23 +540,10 @@ body.clean-mode #remoteVideo {
       });
       stream.addTrack(e.track);
       
-      // Monitor status Audio
+      // Audio track diterima — minta status terkini dari publisher via signaling
+      // PENTING: Jangan gunakan track.enabled/muted di sisi receiver karena
+      // nilainya selalu true (itu properti lokal, bukan refleksi dari publisher)
       if (e.track.kind === 'audio') {
-        const updateAudioUI = () => {
-          const badge = $('audioStatusBadge');
-          if (e.track.enabled && !e.track.muted) {
-            badge.textContent = '🎙️ MIC ON';
-            badge.className = 'audio-badge on';
-          } else {
-            badge.textContent = '🔇 MIC OFF';
-            badge.className = 'audio-badge off';
-          }
-        };
-        e.track.onmute = updateAudioUI;
-        e.track.onunmute = updateAudioUI;
-        e.track.onended = updateAudioUI;
-        updateAudioUI();
-        
         // Secondary sync request saat track diterima
         if (ws && ws.readyState === WebSocket.OPEN && publisherId) {
           ws.send(JSON.stringify({ type: 'request_audio_status', roomId, targetId: publisherId, senderId: clientId }));

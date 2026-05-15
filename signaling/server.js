@@ -8,7 +8,6 @@
 const http = require('http');
 const https = require('https');
 const { WebSocketServer } = require('ws');
-const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
 
