@@ -332,17 +332,31 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
       // Jika sudah streaming, ganti track secara seamless
       if (localStream) {
         const oldVideoTrack = localStream.getVideoTracks()[0];
-        if (oldVideoTrack) oldVideoTrack.stop();
-        
-        // Gabungkan video screen dengan audio lama jika ada
+        // Update localStream
         const audioTrack = localStream.getAudioTracks()[0];
         localStream = audioTrack ? new MediaStream([screenTrack, audioTrack]) : screenStream;
         localVideo.srcObject = localStream;
 
-        // Update semua koneksi peer
-        for (const [, pc] of peerConnections) {
+        // Update semua koneksi peer dengan track video baru
+        for (const [viewerId, pc] of peerConnections) {
           const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-          if (sender) sender.replaceTrack(screenTrack);
+          if (sender) {
+            sender.replaceTrack(screenTrack);
+            
+            // Picu re-negotiation setelah delay singkat agar track benar-benar "settled"
+            setTimeout(() => {
+              if (!pc || pc.signalingState === 'closed') return;
+              pc.createOffer({ iceRestart: false })
+                .then(offer => {
+                  offer.sdp = optimizeSdp(offer.sdp);
+                  return pc.setLocalDescription(offer);
+                })
+                .then(() => {
+                  if (ws?.readyState === WebSocket.OPEN)
+                    ws.send(JSON.stringify({ type: 'offer', roomId, sdp: pc.localDescription.sdp, senderId: clientId, targetId: viewerId }));
+                }).catch(e => console.error('Renegotiation failed', e));
+            }, 3000);
+          }
         }
       } else {
         // Jika belum start, jalankan inisialisasi minimal
