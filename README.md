@@ -64,6 +64,16 @@ Dioptimalkan untuk memangkas setiap milidetik delay:
 
 ---
 
+## 📟 Deployment di STB / Low-Resource Device (Armbian)
+
+Sistem ini dirancang agar sangat ringan dan ideal dijalankan pada STB Android yang di-flash Armbian (seperti HG680P, B860H, dsb):
+
+1. **Hemat CPU & RAM:** Server hanya bertugas sebagai *Signaling* (penghubung). Proses berat seperti encoding video terjadi di perangkat pengirim (HP) dan decoding di perangkat penerima (Laptop).
+2. **Arsitektur P2P:** Data video tidak mengalir melalui STB, sehingga tidak membebani bandwidth atau processor STB meskipun streaming resolusi tinggi.
+3. **Optimasi Docker:** Menggunakan base image `alpine` yang sangat kecil dan konfigurasi `network_mode: host` untuk performa jaringan maksimal di arsitektur ARM.
+
+---
+
 ## 📱 Cara Penggunaan
 
 ### 1. Sisi Publisher (Pengirim)
