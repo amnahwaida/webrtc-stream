@@ -119,6 +119,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
 }
 .btn:active{transform:scale(.97)}
 .btn-primary{background:var(--accent);color:#fff}
+.btn-accent{background:#00d2ff;background:linear-gradient(to right, #3a7bd5, #00d2ff);color:#fff}
 .btn-danger{background:var(--red);color:#fff}
 .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
 .btn-secondary.active{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -221,8 +222,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
       </div>
     </div>
     <div class="controls-row">
-      <button class="btn btn-primary" id="btnStart">▶ Start Camera</button>
-      <button class="btn btn-danger" id="btnStop" disabled>⏹ Stop</button>
+            <button id="btnStart" class="btn btn-primary" title="Mulai Streaming Kamera">📹 Start Cam</button>
+            <button id="btnScreen" class="btn btn-accent" title="Berbagi Layar / Jendela Spesifik">🖥️ Share Screen</button>
+            <button id="btnStop" class="btn btn-danger" disabled title="Berhenti">⏹ Stop</button>
     </div>
     <div class="controls-row">
       <button class="btn btn-secondary btn-sm" id="btnAudio">🔇 Audio Off</button>
@@ -237,15 +239,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
 (() => {
   const $ = id => document.getElementById(id);
   const localVideo = $('localVideo');
-  const btnStart = $('btnStart');
-  const btnStop = $('btnStop');
-  const btnAudio = $('btnAudio');
-  const btnFlip = $('btnFlip');
+  const btnStart = $('btnStart'), btnScreen = $('btnScreen'), btnStop = $('btnStop');
+  const placeholder = $('placeholder'), statsOverlay = $('statsOverlay');
   const selRes = $('selRes');
   const selFps = $('selFps');
   const selCamera = $('selCamera');
   const inputRoom = $('inputRoom');
-  const placeholder = $('placeholder');
   const statsOverlay = $('statsOverlay');
   const statusBar = $('statusBar');
   const controlsPanel = $('controlsPanel');
@@ -324,6 +323,57 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   }
 
   // ── Get Media ──
+  async function startScreenShare() {
+    try {
+      // Minta izin share screen
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { cursor: "always" },
+        audio: false // Kita tetap pakai mic dari startCamera jika ingin audio
+      });
+      
+      const screenTrack = screenStream.getVideoTracks()[0];
+      
+      // Jika sudah streaming, ganti track secara seamless
+      if (localStream) {
+        const oldVideoTrack = localStream.getVideoTracks()[0];
+        if (oldVideoTrack) oldVideoTrack.stop();
+        
+        // Gabungkan video screen dengan audio lama jika ada
+        const audioTrack = localStream.getAudioTracks()[0];
+        localStream = audioTrack ? new MediaStream([screenTrack, audioTrack]) : screenStream;
+        localVideo.srcObject = localStream;
+
+        // Update semua koneksi peer
+        for (const [, pc] of peerConnections) {
+          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) sender.replaceTrack(screenTrack);
+        }
+      } else {
+        // Jika belum start, jalankan inisialisasi minimal
+        localStream = screenStream;
+        localVideo.srcObject = localStream;
+        placeholder.classList.add('hidden');
+        statsOverlay.style.display = '';
+        btnStart.disabled = true;
+        btnScreen.disabled = true;
+        btnStop.disabled = false;
+        roomId = inputRoom.value.trim() || 'cam1';
+        $('roomBadge').textContent = roomId;
+        connectSignaling();
+      }
+
+      // Deteksi jika user menekan tombol "Stop Sharing" bawaan browser
+      screenTrack.onended = () => {
+        toast('🖥️ Screen sharing ended');
+        stopCamera();
+      };
+
+      toast('🖥️ Screen sharing started', 'success');
+    } catch (err) {
+      toast('❌ Screen share error: ' + err.message, 'error');
+    }
+  }
+
   async function startCamera() {
     const [baseW, baseH] = selRes.value.split('x').map(Number);
     const fps = parseInt(selFps.value);
@@ -396,6 +446,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
     placeholder.classList.remove('hidden');
     statsOverlay.style.display = 'none';
     btnStart.disabled = false;
+    btnScreen.disabled = false;
     btnStop.disabled = true;
     for (const [, pc] of peerConnections) pc.close();
     peerConnections.clear();
@@ -660,6 +711,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
 
   // ── Button Handlers ──
   btnStart.addEventListener('click', startCamera);
+  btnScreen.addEventListener('click', startScreenShare);
   btnStop.addEventListener('click', stopCamera);
   $('fabStop').addEventListener('click', stopCamera);
 
