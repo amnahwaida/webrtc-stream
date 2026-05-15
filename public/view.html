@@ -266,7 +266,7 @@ body.clean-mode #remoteVideo {
     iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
-    iceCandidatePoolSize: 2  // Pre-allocate ICE candidates untuk handshake lebih cepat
+    iceCandidatePoolSize: 4  // Pre-allocate ICE candidates untuk handshake lebih cepat
   };
 
   $('cfgRoom').value = roomId;

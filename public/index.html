@@ -268,7 +268,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
     iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
-    iceCandidatePoolSize: 2
+    iceCandidatePoolSize: 4 // Ditambah dari 2 ke 4 untuk gathering lebih cepat
   };
   let panelOpen = false;
 
@@ -586,12 +586,31 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   // menyebabkan korupsi SDP di OBS Browser Source (CEF). Payload type tidak selalu 96,
   // dan OBS CEF sering gagal decode H264 hardware. Biarkan browser negosiasi codec sendiri.
   function optimizeSdp(sdp) {
-    // Opus audio optimization: VBR mono, 48kbps (optimal untuk speech di LAN)
+    // 1. Audio optimization: Opus VBR 48kbps Mono
     sdp = sdp.replace(
       /(a=fmtp:\d+ [^\r\n]*useinbandfec=1)/g,
       '$1;usedtx=1;stereo=0;sprop-stereo=0;cbr=0;maxaveragebitrate=48000;maxplaybackrate=48000;ptime=10'
     );
-    return sdp;
+    
+    // 2. Bitrate Kickstart: Langsung mulai di bitrate tinggi (2.5Mbps) tanpa ramping up
+    sdp = sdp.replace(/a=fmtp:(\d+) (.*)/g, (match, pt, fmtp) => {
+      if (fmtp.indexOf('max-fs') !== -1 || fmtp.indexOf('apt') !== -1) return match;
+      return `a=fmtp:${pt} ${fmtp};x-google-start-bitrate=2500;x-google-min-bitrate=2000`;
+    });
+
+    // 3. SDP Pruning: Hapus codec video yang tidak perlu (seperti VP9/AV1) jika VP8 ada
+    // Ini membantu decoder OBS langsung mengunci codec yang diinginkan
+    const lines = sdp.split('\r\n');
+    const prunedLines = lines.filter(line => {
+      if (line.includes('m=video') || line.includes('a=rtpmap') || line.includes('a=fmtp')) {
+        // Hanya izinkan VP8, H264, dan Opus. AV1/VP9 sering menambah latency di ARM STB.
+        return line.includes('VP8') || line.includes('H264') || line.includes('opus') || 
+               line.includes('m=video') || line.includes('m=audio') || line.includes('rtcp-fb');
+      }
+      return true;
+    });
+    
+    return prunedLines.join('\r\n');
   }
 
   function createPeerConnection(viewerId) {
