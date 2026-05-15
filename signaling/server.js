@@ -329,6 +329,9 @@ wss.on('connection', (ws, req) => {
       case 'leave':
         handleLeave(ws, msg);
         break;
+      case 'control':
+        handleControl(ws, msg);
+        break;
       case 'ping':
         safeSend(ws, { type: 'pong' });
         break;
@@ -492,6 +495,26 @@ wss.on('connection', (ws, req) => {
       removeClientFromRoom(roomId, clientId);
       currentRoomId = null;
       currentClientId = null;
+    }
+  }
+
+  function handleControl(ws, msg) {
+    const { roomId, targetId } = msg;
+    const room = rooms.get(roomId);
+    if (!room) return;
+    
+    if (targetId) {
+      const target = room.get(targetId);
+      if (target) {
+        safeSend(target.ws, msg);
+      }
+    } else {
+      // Broadcast to all except sender
+      for (const [peerId, peer] of room) {
+        if (peer.ws !== ws) {
+          safeSend(peer.ws, msg);
+        }
+      }
     }
   }
 });

@@ -19,9 +19,10 @@
 html,body{height:100%;font-family:var(--font-main),system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
 .app{display:flex;flex-direction:column;height:100vh}
 .topbar{
+  position:fixed;top:0;left:0;right:0;
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 20px;background:var(--glass);backdrop-filter:blur(24px);
-  border-bottom:1px solid var(--border);z-index:20;flex-shrink:0;
+  border-bottom:1px solid var(--border);z-index:100;
 }
 .topbar-left{display:flex;align-items:center;gap:12px}
 .topbar h1{font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--accent2),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
@@ -42,7 +43,7 @@ html,body{height:100%;font-family:var(--font-main),system-ui,sans-serif;backgrou
   transition:all .2s;
 }
 .icon-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
-.video-area{flex:1;position:relative;background:#000;display:flex;align-items:center;justify-content:center}
+.video-area{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:1}
 #remoteVideo{width:100%;height:100%;object-fit:contain;background:#000}
 .waiting{
   position:absolute;inset:0;display:flex;flex-direction:column;
@@ -71,9 +72,10 @@ html,body{height:100%;font-family:var(--font-main),system-ui,sans-serif;backgrou
 .stat-value.warn{color:var(--orange)}
 .stat-value.bad{color:var(--red)}
 .bottombar{
+  position:fixed;bottom:0;left:0;right:0;
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 20px;background:var(--glass);backdrop-filter:blur(24px);
-  border-top:1px solid var(--border);flex-shrink:0;
+  border-top:1px solid var(--border);z-index:100;
 }
 .conn-info{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
 .conn-dot{width:8px;height:8px;border-radius:50%;background:var(--red)}
@@ -106,7 +108,7 @@ html,body{height:100%;font-family:var(--font-main),system-ui,sans-serif;backgrou
 .modal-actions button{flex:1;padding:12px;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
 .modal-actions .btn-ok{background:var(--accent);color:#fff}
 .modal-actions .btn-cancel{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
-.app.fullscreen .topbar,.app.fullscreen .bottombar{opacity:0;transition:opacity .3s}
+.app.fullscreen .topbar,.app.fullscreen .bottombar{opacity:1;transition:opacity .3s}
 .app.fullscreen:hover .topbar,.app.fullscreen:hover .bottombar{opacity:1}
 .toast{
   position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(40px);
@@ -200,6 +202,7 @@ body.clean-mode #remoteVideo {
       <span id="connText">Disconnected</span>
     </div>
     <div class="bottom-controls">
+      <button class="ctrl-btn" id="btnRemoteMic" title="Toggle Publisher Microphone">🎙️ Remote Mic</button>
       <button class="ctrl-btn" id="btnMute">🔇 Klik Unmute</button>
       <button class="ctrl-btn" id="btnPip">📌 PiP</button>
     </div>
@@ -338,8 +341,6 @@ body.clean-mode #remoteVideo {
         const el = document.querySelector(sel);
         if (el) el.remove();
       };
-      removeEl('.topbar');
-      removeEl('.bottombar');
       removeEl('.stats-panel');
       removeEl('#debugLog');
     }
@@ -502,7 +503,17 @@ body.clean-mode #remoteVideo {
     pc.ontrack = (e) => {
       if (gen !== generation) return;
       dbg('Got remote track: ' + e.track.kind);
-      $('remoteVideo').srcObject = e.streams[0] || new MediaStream([e.track]);
+      
+      const vid = $('remoteVideo');
+      if (!vid.srcObject) {
+        vid.srcObject = new MediaStream();
+      }
+      
+      const stream = vid.srcObject;
+      stream.getTracks().forEach(t => {
+        if (t.kind === e.track.kind) stream.removeTrack(t);
+      });
+      stream.addTrack(e.track);
       // Optimasi: minta browser render video tanpa buffering
       try { $('remoteVideo').latencyHint = 0; } catch(err) {}
       $('waiting').classList.add('hidden');
@@ -671,6 +682,20 @@ body.clean-mode #remoteVideo {
     $('btnMute').textContent = isMuted ? '🔇 Muted' : '🔊 Unmuted';
     if (!isMuted) $('unmuteOverlay').style.display = 'none';
   };
+  
+  $('btnRemoteMic').onclick = () => {
+    if (!publisherId) return toast('⚠️ No publisher connected');
+    if (!ws || ws.readyState !== WebSocket.OPEN) return toast('⚠️ Not connected to server');
+    ws.send(JSON.stringify({
+      type: 'control',
+      roomId: roomId,
+      targetId: publisherId,
+      senderId: clientId,
+      command: 'toggle_audio'
+    }));
+    toast('🎙️ Toggling publisher mic...');
+  };
+
   $('btnPip').onclick = async () => {
     try {
       if (document.pictureInPictureElement) await document.exitPictureInPicture();

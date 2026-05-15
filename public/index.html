@@ -342,19 +342,19 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
       },
       // SELALU tangkap audio, tapi mulai dalam keadaan mati
       audio: {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
         channelCount: 1,
         sampleRate: 48000,
         sampleSize: 16,
         latency: 0,
-        googEchoCancellation: false,
-        googAutoGainControl: false,
-        googNoiseSuppression: false,
-        googHighpassFilter: false,
-        googTypingNoiseDetection: false,
-        googDscp: true // Prioritas paket di jaringan
+        googEchoCancellation: true,
+        googAutoGainControl: true,
+        googNoiseSuppression: true,
+        googHighpassFilter: true,
+        googTypingNoiseDetection: true,
+        googDscp: true
       }
     };
     if (selCamera.value && selCamera.value !== 'Loading...') {
@@ -476,6 +476,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
         break;
       case 'answer': handleRemoteAnswer(msg); break;
       case 'candidate': handleRemoteCandidate(msg); break;
+      case 'control':
+        if (msg.command === 'toggle_audio') {
+          toast('🎙️ Remote mic toggle requested');
+          doAudioToggle();
+        }
+        break;
       case 'error': toast(`❌ ${msg.message}`, 'error'); break;
       case 'server_shutdown': toast('⚠️ Server restarting...', 'error'); break;
       case 'kicked': toast('🚫 Kicked by admin', 'error'); stopCamera(); break;
@@ -648,15 +654,17 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   $('fabStop').addEventListener('click', stopCamera);
 
   function doFlip() {
+    // Simpan track audio yang sedang berjalan jika ada
+    const audioTrack = localStream ? localStream.getAudioTracks()[0] : null;
+    
+    // Matikan HANYA track video lama
     if (localStream) {
-      localStream.getTracks().forEach(t => t.stop());
+      localStream.getVideoTracks().forEach(t => t.stop());
     }
     
-    // Cycle camera source jika device list tersedia
+    // Cycle camera source
     if (selCamera.options.length > 1) {
       selCamera.selectedIndex = (selCamera.selectedIndex + 1) % selCamera.options.length;
-    } else {
-      facingMode = facingMode === 'environment' ? 'user' : 'environment';
     }
 
     const [baseW, baseH] = selRes.value.split('x').map(Number);
@@ -665,24 +673,33 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
     const w = orientation === 'portrait' ? Math.min(baseW, baseH) : Math.max(baseW, baseH);
     const h = orientation === 'portrait' ? Math.max(baseW, baseH) : Math.min(baseW, baseH);
     
+    // Minta track video baru saja
     const constraints = {
-      video: { width:{ideal:w}, height:{ideal:h}, frameRate:{ideal:fps} },
-      audio: audioEnabled
+      video: { 
+        width:{ideal:w}, height:{ideal:h}, frameRate:{ideal:fps},
+        deviceId: selCamera.value ? { exact: selCamera.value } : undefined
+      },
+      audio: false // Jangan minta audio baru, kita akan pakai yang lama
     };
-    
-    if (selCamera.options.length > 0 && selCamera.value !== 'Loading...') {
-      constraints.video.deviceId = { exact: selCamera.value };
-    } else {
-      constraints.video.facingMode = facingMode;
-    }
 
-    navigator.mediaDevices.getUserMedia(constraints).then(stream => {
-      localStream = stream;
-      localVideo.srcObject = stream;
-      const videoTrack = stream.getVideoTracks()[0];
+    navigator.mediaDevices.getUserMedia(constraints).then(newStream => {
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      
+      // Jika ada audio lama, gabungkan dengan video baru ke localStream
+      if (audioTrack) {
+        localStream = new MediaStream([newVideoTrack, audioTrack]);
+      } else {
+        localStream = newStream;
+      }
+
+      localVideo.srcObject = localStream;
+
+      // Update semua koneksi peer dengan track video baru tanpa memutus audio
       for (const [, pc] of peerConnections) {
         const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-        if (sender && videoTrack) sender.replaceTrack(videoTrack);
+        if (sender && newVideoTrack) {
+          sender.replaceTrack(newVideoTrack);
+        }
       }
     }).catch(e => toast('❌ Flip failed: ' + e.message, 'error'));
   }

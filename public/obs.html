@@ -12,8 +12,16 @@
 </head>
 <body>
 <video id="video" autoplay playsinline></video>
+<!-- Overlay unmute untuk Browser Biasa -->
+<div id="unmuteOverlay" style="position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);cursor:pointer;color:white;font-family:sans-serif;text-align:center">
+  <div style="background:var(--accent,#6c5ce7);padding:20px 40px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.5)">
+    <div style="font-size:40px;margin-bottom:10px">🔊</div>
+    <div style="font-size:18px;font-weight:bold">Klik untuk Aktifkan Suara</div>
+    <div style="font-size:12px;opacity:0.8;margin-top:5px">Browser memblokir suara otomatis</div>
+  </div>
+</div>
 <!-- Version indicator -->
-<div style="position:fixed;bottom:4px;right:4px;font-size:9px;color:rgba(255,255,255,0.3);z-index:5">v7</div>
+<div style="position:fixed;bottom:4px;right:4px;font-size:9px;color:rgba(255,255,255,0.3);z-index:5">v9-stable</div>
 <script>
 (() => {
   const params = new URLSearchParams(location.search);
@@ -26,11 +34,7 @@
     iceServers: [
       { urls: `stun:${stunHost}:3478` },
       { urls: `turn:${stunHost}:3478`, username: 'webrtc', credential: 'webrtc123' }
-    ],
-    iceTransportPolicy: 'all',
-    bundlePolicy: 'max-bundle',
-    rtcpMuxPolicy: 'require',
-    iceCandidatePoolSize: 2
+    ]
   };
 
   let ws, pc, publisherId;
@@ -38,72 +42,77 @@
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const token = params.get('token') || '';
-    const wsUrl = `${proto}//${location.host}/ws${token ? '?token=' + token : ''}`;
+    const wsUrl = `${proto}//${location.host}/ws`;
 
-    try { if (ws) ws.close(); } catch(e) {}
+    if (ws) { try { ws.close(); } catch(e) {} }
     if (pc) { try { pc.close(); } catch(e) {} pc = null; }
 
     ws = new WebSocket(wsUrl);
-
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: 'join', roomId, clientId, role: 'viewer' }));
     };
 
     ws.onmessage = (evt) => {
       const msg = JSON.parse(evt.data);
-
-      if (msg.type === 'joined') {
-        const pub = (msg.peers || []).find(p => p.role === 'publisher');
-        if (pub) publisherId = pub.clientId;
-      }
-
-      if (msg.type === 'peer_joined' && msg.role === 'publisher') {
-        publisherId = msg.clientId;
-      }
-
-      if (msg.type === 'peer_left' && msg.clientId === publisherId) {
-        publisherId = null;
-        vid.srcObject = null;
-      }
-
       if (msg.type === 'offer') {
         publisherId = msg.senderId;
         handleOffer(msg);
-      }
-
-      if (msg.type === 'candidate' && pc) {
-        if (pc.remoteDescription) {
-          pc.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(() => {});
+      } else if (msg.type === 'candidate') {
+        if (pc && pc.remoteDescription) {
+          pc.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(e => {});
         } else {
           pendingCandidates.push(msg.candidate);
         }
+      } else if (msg.type === 'peer_left' && msg.clientId === publisherId) {
+        vid.srcObject = null;
       }
     };
-
     ws.onclose = () => setTimeout(connect, 3000);
-    ws.onerror = () => {};
   }
 
   function handleOffer(msg) {
-    if (pc) { try { pc.close(); } catch(e) {} }
+    if (pc) pc.close();
+    pc = new RTCPeerConnection(rtcConfig);
     pendingCandidates = [];
 
-    pc = new RTCPeerConnection(rtcConfig);
+    // PAKSA: Pesan jalur untuk audio dan video
+    pc.addTransceiver('audio', { direction: 'recvonly' });
+    pc.addTransceiver('video', { direction: 'recvonly' });
 
     pc.ontrack = (e) => {
-      vid.srcObject = e.streams[0] || new MediaStream([e.track]);
-      // OBS CEF mengabaikan atribut autoplay HTML, perlu panggil .play() secara eksplisit
-      vid.play().catch(() => {});
-      // Optimasi: render video tanpa buffering
-      try { vid.latencyHint = 0; } catch(err) {}
-      // Optimasi Latensi
-      if (e.receiver) {
-        try {
-          e.receiver.playoutDelayHint = 0;
-          e.receiver.jitterBufferTarget = 0;
-        } catch(err) {}
+      // LOGIKA SAKTI: Gunakan satu MediaStream yang sama selamanya
+      if (!vid.srcObject) {
+        vid.srcObject = new MediaStream();
       }
+      
+      const stream = vid.srcObject;
+      
+      // Hapus track lama dengan jenis yang sama agar tidak menumpuk
+      stream.getTracks().forEach(t => {
+        if (t.kind === e.track.kind) {
+          stream.removeTrack(t);
+        }
+      });
+      
+      // Tambahkan track baru (video baru atau audio yang tetap)
+      stream.addTrack(e.track);
+      
+      vid.volume = 1.0; 
+      vid.play().catch(e => {
+        console.log("Autoplay blocked by browser");
+        vid.muted = true;
+        vid.play();
+        document.getElementById('unmuteOverlay').style.display = 'flex';
+      });
+      
+      try { vid.latencyHint = 0; } catch(err) {}
+    };
+
+    // Handler Klik untuk Unmute
+    document.getElementById('unmuteOverlay').onclick = () => {
+      vid.muted = false;
+      vid.play();
+      document.getElementById('unmuteOverlay').style.display = 'none';
     };
 
     pc.onicecandidate = (e) => {
@@ -115,28 +124,22 @@
       }
     };
 
-    pc.oniceconnectionstatechange = () => {
-      if (pc && pc.iceConnectionState === 'failed') {
-        vid.srcObject = null;
-      }
-    };
-
-    pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: msg.sdp }))
+    pc.setRemoteDescription(new RTCSessionDescription(msg))
       .then(() => {
-        pendingCandidates.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}));
+        pendingCandidates.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(e => {}));
         pendingCandidates = [];
-        return pc.createAnswer();
+        return pc.createAnswer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true
+        });
       })
       .then(answer => pc.setLocalDescription(answer))
       .then(() => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: 'answer', roomId, sdp: pc.localDescription.sdp,
-            senderId: clientId, targetId: publisherId
-          }));
-        }
-      })
-      .catch(e => console.error('Offer handling error:', e));
+        ws.send(JSON.stringify({
+          type: 'answer', roomId, sdp: pc.localDescription.sdp,
+          senderId: clientId, targetId: publisherId
+        }));
+      });
   }
 
   connect();
