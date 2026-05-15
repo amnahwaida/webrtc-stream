@@ -322,21 +322,31 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   async function startScreenShare() {
     try {
       // Minta izin share screen
+      // Minta izin share screen (Video + Audio Sistem jika didukung OS/Browser)
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: { cursor: "always" },
-        audio: false // Kita tetap pakai mic dari startCamera jika ingin audio
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
       });
       
       const screenTrack = screenStream.getVideoTracks()[0];
+      const screenAudioTrack = screenStream.getAudioTracks()[0]; // Audio dari Jendela/Tab
       
       // Jika sudah streaming, ganti track secara seamless
       if (localStream) {
         const oldVideoTrack = localStream.getVideoTracks()[0];
-        // Ambil track audio mikrofon yang lama
-        const oldAudioTrack = localStream ? localStream.getAudioTracks()[0] : null;
+        // Ambil track audio mikrofon yang lama (Voice)
+        const micAudioTrack = localStream.getAudioTracks().find(t => t.id !== (screenAudioTrack?.id));
         
-        // Update localStream (Video dari Screen, Audio tetap dari Mic lama)
-        localStream = oldAudioTrack ? new MediaStream([screenTrack, oldAudioTrack]) : new MediaStream([screenTrack]);
+        // Gabungkan video screen dengan audio (Prioritaskan Sistem Audio jika ada, fallback ke Mic)
+        // Note: Browser biasanya hanya mengizinkan 1 audio track per stream di WebRTC standard, 
+        // tapi kita bisa mencoba mengirim yang paling relevan.
+        const audioToUse = screenAudioTrack || micAudioTrack;
+        
+        localStream = audioToUse ? new MediaStream([screenTrack, audioToUse]) : new MediaStream([screenTrack]);
         localVideo.srcObject = localStream;
 
         // Update semua koneksi peer
@@ -345,9 +355,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
           const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
           if (videoSender) videoSender.replaceTrack(screenTrack);
           
-          // Pastikan Audio Track tetap terhubung (replace dengan objek yang sama untuk menyehatkan jalur)
+          // Ganti Audio Track ke System Audio (jika ada) agar suara jendela masuk
           const audioSender = pc.getSenders().find(s => s.track?.kind === 'audio');
-          if (audioSender && oldAudioTrack) audioSender.replaceTrack(oldAudioTrack);
+          if (audioSender && audioToUse) audioSender.replaceTrack(audioToUse);
             
           // Picu re-negotiation setelah delay singkat agar format video baru dikenali OBS
           setTimeout(() => {
