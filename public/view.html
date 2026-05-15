@@ -260,8 +260,8 @@ body.clean-mode #remoteVideo {
   const stunHost = location.hostname;
   const rtcConfig = {
     iceServers: [
-      { urls: `stun:${stunHost}:3478` },
-      { urls: `turn:${stunHost}:3478`, username: 'webrtc', credential: 'webrtc123' }
+      { urls: `stun:${stunHost}:3478` }
+      // TURN dihapus: semua perangkat di 1 WiFi LAN yang sama
     ],
     iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
@@ -550,7 +550,10 @@ body.clean-mode #remoteVideo {
         }
       }
       // Optimasi: minta browser render video tanpa buffering
-      try { $('remoteVideo').latencyHint = 0; } catch(err) {}
+      try {
+        $('remoteVideo').latencyMode = 'realtime'; // Standar W3C
+        $('remoteVideo').latencyHint = 0; // Fallback non-standar
+      } catch(err) {}
       $('waiting').classList.add('hidden');
       setConn('ok', 'Streaming');
       toast('🎬 Stream started!');

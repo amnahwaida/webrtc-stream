@@ -32,8 +32,8 @@
   const stunHost = location.hostname;
   const rtcConfig = {
     iceServers: [
-      { urls: `stun:${stunHost}:3478` },
-      { urls: `turn:${stunHost}:3478`, username: 'webrtc', credential: 'webrtc123' }
+      { urls: `stun:${stunHost}:3478` }
+      // TURN dihapus: semua perangkat di 1 WiFi LAN yang sama
     ]
   };
 
@@ -105,7 +105,10 @@
         document.getElementById('unmuteOverlay').style.display = 'flex';
       });
       
-      try { vid.latencyHint = 0; } catch(err) {}
+      try {
+        vid.latencyMode = 'realtime'; // Standar W3C
+        vid.latencyHint = 0; // Fallback
+      } catch(err) {}
     };
 
     // Handler Klik untuk Unmute

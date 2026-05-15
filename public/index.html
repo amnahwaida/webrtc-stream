@@ -267,8 +267,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   const stunHost = location.hostname;
   const rtcConfig = {
     iceServers: [
-      { urls: `stun:${stunHost}:3478` },
-      { urls: `turn:${stunHost}:3478`, username: 'webrtc', credential: 'webrtc123' }
+      { urls: `stun:${stunHost}:3478` }
+      // TURN dihapus: semua perangkat di 1 WiFi LAN yang sama
     ],
     iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
@@ -348,13 +348,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
         channelCount: 1,
         sampleRate: 48000,
         sampleSize: 16,
-        latency: 0,
-        googEchoCancellation: true,
-        googAutoGainControl: true,
-        googNoiseSuppression: true,
-        googHighpassFilter: true,
-        googTypingNoiseDetection: true,
-        googDscp: true
+        latency: 0
       }
     };
     if (selCamera.value && selCamera.value !== 'Loading...') {
@@ -542,13 +536,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
         const preferred = [...vp8, ...h264, ...others];
         if (preferred.length) try { t.setCodecPreferences(preferred); } catch(e) {}
       }
-      // Prioritaskan Opus untuk audio (latensi terendah)
-      if (t.sender?.track?.kind === 'audio') {
-        const codecs = RTCRtpSender.getCapabilities('audio')?.codecs || [];
-        const opus = codecs.filter(c => c.mimeType === 'audio/opus');
-        const rest = codecs.filter(c => c.mimeType !== 'audio/opus');
-        if (opus.length) try { t.setCodecPreferences([...opus, ...rest]); } catch(e) {}
-      }
+      // Opus sudah default di semua browser modern — tidak perlu filter
     });
 
     // ── Optimasi Latensi: Encoding Parameters ──
@@ -558,7 +546,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
         if (!params.encodings) params.encodings = [{}];
         params.encodings.forEach(enc => {
           enc.maxBitrate = 2500000;
-          enc.maxFramerate = 30;
+          enc.maxFramerate = parseInt(selFps.value) || 30; // Sinkron dengan pilihan user
           enc.networkPriority = 'high';
           enc.priority = 'high';
           // Optimasi: Paksa mode L1T1 (lapisan tunggal) untuk encoding tercepat
