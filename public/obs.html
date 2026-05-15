@@ -124,6 +124,24 @@
       }
     };
 
+    // ICE failure handler - recovery otomatis saat koneksi gagal
+    pc.oniceconnectionstatechange = () => {
+      const s = pc.iceConnectionState;
+      console.log('[OBS ICE]', s);
+      if (s === 'failed') {
+        console.log('[OBS] ICE failed, reconnecting...');
+        if (pc) { try { pc.close(); } catch(e) {} pc = null; }
+        // Tunggu offer baru dari publisher
+      } else if (s === 'disconnected') {
+        setTimeout(() => {
+          if (pc && pc.iceConnectionState === 'disconnected') {
+            console.log('[OBS] ICE still disconnected, closing...');
+            if (pc) { try { pc.close(); } catch(e) {} pc = null; }
+          }
+        }, 5000);
+      }
+    };
+
     pc.setRemoteDescription(new RTCSessionDescription(msg))
       .then(() => {
         pendingCandidates.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(e => {}));

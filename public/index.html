@@ -447,13 +447,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
       }
     };
 
-    const heartbeatInterval = setInterval(() => {
+    // Fix: Bersihkan heartbeat lama sebelum buat baru (cegah memory leak saat reconnect)
+    if (window._heartbeatInterval) clearInterval(window._heartbeatInterval);
+    window._heartbeatInterval = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'ping' }));
       } else {
-        clearInterval(heartbeatInterval);
+        clearInterval(window._heartbeatInterval);
       }
-    }, 30000);
+    }, 55000); // Sinkron dengan server keepalive (60s)
     ws.onerror = () => {};
   }
 
@@ -513,10 +515,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   // menyebabkan korupsi SDP di OBS Browser Source (CEF). Payload type tidak selalu 96,
   // dan OBS CEF sering gagal decode H264 hardware. Biarkan browser negosiasi codec sendiri.
   function optimizeSdp(sdp) {
-    // Opus audio optimization saja (aman, tidak mempengaruhi video)
+    // Opus audio optimization: VBR mono, 48kbps (optimal untuk speech di LAN)
     sdp = sdp.replace(
       /(a=fmtp:\d+ [^\r\n]*useinbandfec=1)/g,
-      '$1;usedtx=1;stereo=0;sprop-stereo=0;cbr=1;maxaveragebitrate=64000;maxplaybackrate=48000;ptime=10'
+      '$1;usedtx=1;stereo=0;sprop-stereo=0;cbr=0;maxaveragebitrate=48000;maxplaybackrate=48000;ptime=10'
     );
     return sdp;
   }
@@ -569,7 +571,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
         const params = sender.getParameters();
         if (!params.encodings) params.encodings = [{}];
         params.encodings.forEach(enc => {
-          enc.maxBitrate = 128000;       // 128kbps Opus (kualitas tinggi)
+          enc.maxBitrate = 48000;        // 48kbps Opus Mono (optimal untuk speech)
           enc.networkPriority = 'high';
           enc.priority = 'high';
         });
@@ -664,7 +666,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
         } catch(e) {}
         break;
       }
-    }, 2000);
+    }, 5000); // 5 detik cukup untuk monitoring, hemat CPU
   }
 
   // ── Button Handlers ──
@@ -681,7 +683,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
       localStream.getVideoTracks().forEach(t => t.stop());
     }
     
-    // Cycle camera source
+    // Toggle facingMode untuk mendukung HP dengan 1 kamera di dropdown
+    facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    
+    // Cycle camera source (jika ada multiple kamera)
     if (selCamera.options.length > 1) {
       selCamera.selectedIndex = (selCamera.selectedIndex + 1) % selCamera.options.length;
     }
@@ -696,10 +701,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
     const constraints = {
       video: { 
         width:{ideal:w}, height:{ideal:h}, frameRate:{ideal:fps},
-        deviceId: selCamera.value ? { exact: selCamera.value } : undefined
+        facingMode: facingMode
       },
       audio: false // Jangan minta audio baru, kita akan pakai yang lama
     };
+    // Override dengan deviceId jika ada multiple kamera
+    if (selCamera.options.length > 1 && selCamera.value) {
+      constraints.video.deviceId = { exact: selCamera.value };
+      delete constraints.video.facingMode;
+    }
 
     navigator.mediaDevices.getUserMedia(constraints).then(newStream => {
       const newVideoTrack = newStream.getVideoTracks()[0];
@@ -743,7 +753,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
       ws.send(JSON.stringify({
         type: 'audio_status',
         roomId,
-        enabled: audioEnabled
+        enabled: audioEnabled,
+        senderId: clientId
       }));
     }
   }

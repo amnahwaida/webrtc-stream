@@ -405,7 +405,7 @@ body.clean-mode #remoteVideo {
       } else {
         clearInterval(heartbeatInterval);
       }
-    }, 30000);
+    }, 55000); // Sinkron dengan server keepalive (60s)
 
     socket.onerror = () => {
       dbg(`WS error gen=${myGen}`);
@@ -588,6 +588,7 @@ body.clean-mode #remoteVideo {
     pc.onicecandidate = (e) => {
       if (gen !== generation || !ws || ws.readyState !== WebSocket.OPEN) return;
       if (e.candidate) {
+        if (e.candidate.type === 'relay') return; // Skip relay di LAN
         ws.send(JSON.stringify({
           type: 'candidate', roomId, candidate: e.candidate,
           senderId: clientId, targetId: publisherId
@@ -694,7 +695,7 @@ body.clean-mode #remoteVideo {
           }
         });
       } catch(e) {}
-    }, 2000);
+    }, 5000); // 5 detik cukup untuk monitoring, hemat CPU
   }
 
   // ── UI ──
@@ -808,7 +809,7 @@ body.clean-mode #remoteVideo {
     connect();
   };
 
-  setInterval(updateSources, 5000);
+  setInterval(updateSources, 15000); // 15 detik cukup, daftar room jarang berubah
   updateSources();
 
   // ── Start ──
