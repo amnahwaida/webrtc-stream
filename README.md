@@ -79,6 +79,25 @@ Buka URL berikut di perangkat lain:
 
 ---
 
+## 🔒 Keamanan & Izin Kamera (PENTING)
+
+Browser modern (Chrome, Safari, Edge) hanya mengizinkan akses kamera/mikrofon pada **Secure Context** (HTTPS atau localhost).
+
+### Opsi 1: Menggunakan HTTPS (Port 3000)
+Gunakan port **3000** untuk Publisher: `https://[IP-SERVER]:3000/`.
+> **Catatan:** Karena menggunakan sertifikat self-signed, browser akan memberikan peringatan keamanan. Klik **Advanced** -> **Proceed to [IP] (unsafe)** untuk melanjutkan.
+
+### Opsi 2: Bypass Insecure Origin (Untuk Port 3080)
+Jika Anda ingin menggunakan port **3080** (HTTP) tanpa ribet dengan peringatan SSL, Anda harus mendaftarkan IP server sebagai origin yang aman di browser Publisher:
+1. Buka Chrome/Edge di perangkat Publisher.
+2. Akses: `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+3. Masukkan alamat server, contoh: `http://192.168.1.13:3080`
+4. Ubah dropdown menjadi **Enabled**.
+5. Klik **Relaunch**.
+6. Kamera sekarang dapat diizinkan pada port 3080.
+
+---
+
 ## 🔧 Optimasi Spesifik Lingkungan LAN
 
 ### 🔊 Audio Configuration (Optimized for Speech)
