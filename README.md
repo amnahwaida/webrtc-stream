@@ -98,6 +98,21 @@ Jika Anda ingin menggunakan port **3080** (HTTP) tanpa ribet dengan peringatan S
 
 ---
 
+## 🖥️ Screen Sharing & Audio (PENTING)
+
+Fitur Berbagi Layar (Screen Share) memungkinkan Anda membagikan Jendela, Seluruh Layar, atau Tab Chrome. Namun, terdapat batasan teknis terkait suara (audio):
+
+### Batasan Audio Berdasarkan Sumber:
+1. **Chrome Tab (Rekomendasi):** Mendukung berbagi audio sistem secara penuh di semua OS. Sangat disarankan untuk presentasi video/web.
+2. **Entire Screen (Seluruh Layar):** Dukungan audio tersedia di Windows, namun sangat terbatas di macOS/Linux karena kebijakan privasi OS.
+3. **Window (Jendela Spesifik):** Mayoritas browser **TIDAK** mendukung pengambilan audio langsung dari jendela aplikasi pihak ketiga (seperti VLC, PPT, dll).
+
+### Tips Berbagi Suara:
+- Jika opsi "Share Audio" tidak muncul saat memilih Jendela, sistem akan **otomatis tetap menggunakan Mikrofon** Anda. Viewer akan mendengar suara Anda yang menjelaskan isi jendela tersebut.
+- Untuk kualitas suara terbaik dari video, buka video tersebut di **Tab Chrome** dan pastikan centang opsi **"Share Tab Audio"** saat memulai screen share.
+
+---
+
 ## 🔧 Optimasi Spesifik Lingkungan LAN
 
 ### 🔊 Audio Configuration (Optimized for Speech)
