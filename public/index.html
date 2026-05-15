@@ -592,19 +592,28 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
       '$1;usedtx=1;stereo=0;sprop-stereo=0;cbr=0;maxaveragebitrate=48000;maxplaybackrate=48000;ptime=10'
     );
     
-    // 2. Bitrate Kickstart: Langsung mulai di bitrate tinggi (2.5Mbps) tanpa ramping up
+    // 2. Bitrate Kickstart & Low Latency Hints
     sdp = sdp.replace(/a=fmtp:(\d+) (.*)/g, (match, pt, fmtp) => {
       if (fmtp.indexOf('max-fs') !== -1 || fmtp.indexOf('apt') !== -1) return match;
-      return `a=fmtp:${pt} ${fmtp};x-google-start-bitrate=2500;x-google-min-bitrate=2000`;
+      return `a=fmtp:${pt} ${fmtp};x-google-start-bitrate=2500;x-google-min-bitrate=2000;x-google-max-bitrate=5000;x-google-priority=1;goog-complexity=0`;
     });
 
+    // 3. Menghapus rtcp-fb: goog-remb dan transport-cc yang kadang menambah overhead di LAN
+    // sdp = sdp.replace(/a=rtcp-fb:(\d+) goog-remb\r\n/g, ''); 
+    
     return sdp;
   }
 
   function createPeerConnection(viewerId) {
     const pc = new RTCPeerConnection(rtcConfig);
     peerConnections.set(viewerId, pc);
-    if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    
+    // BREAK AUDIO-VIDEO SYNC: Kirim audio dan video sebagai stream terpisah
+    // Ini mencegah browser viewer menunda video demi menunggu audio (atau sebaliknya)
+    if (localStream) {
+      localStream.getVideoTracks().forEach(track => pc.addTrack(track, new MediaStream([track])));
+      localStream.getAudioTracks().forEach(track => pc.addTrack(track, new MediaStream([track])));
+    }
 
     // Prefer VP8 terlebih dahulu karena OBS CEF sering gagal hardware-decode H264 dari HP.
     // VP8 = software codec universal yang pasti didukung semua browser termasuk OBS CEF.

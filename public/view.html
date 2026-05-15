@@ -539,9 +539,8 @@ body.clean-mode #remoteVideo {
         if (t.kind === e.track.kind) stream.removeTrack(t);
       });
       pc.getReceivers().forEach(receiver => {
-        if (receiver.playoutDelayHint !== undefined) {
-          receiver.playoutDelayHint = 0; // Force 0ms buffer
-        }
+        if (receiver.playoutDelayHint !== undefined) receiver.playoutDelayHint = 0;
+        if (receiver.jitterBufferDelayHint !== undefined) receiver.jitterBufferDelayHint = 0;
       });
       stream.addTrack(e.track);
       
