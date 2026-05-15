@@ -246,6 +246,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
   const inputRoom = $('inputRoom'), statusBar = $('statusBar');
   const controlsPanel = $('controlsPanel'), fabToggle = $('fabToggle');
 
+  // Trigger camera update on setting change
+  selRes.addEventListener('change', () => { if (localStream) startCamera(); });
+  selFps.addEventListener('change', () => { if (localStream) startCamera(); });
+  selCamera.addEventListener('change', () => { if (localStream) startCamera(); });
+
   let localStream = null;
   let ws = null;
   let peerConnections = new Map();
@@ -408,7 +413,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
     const constraints = {
       video: {
         width: { ideal: w }, height: { ideal: h },
-        frameRate: { ideal: fps },
+        frameRate: { ideal: fps, max: fps },
         facingMode: facingMode,
         // Optimasi video driver
         googVideoBadFramesPacketsWindow: 0,
@@ -460,8 +465,19 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
       roomId = inputRoom.value.trim() || 'cam1';
       $('roomBadge').textContent = roomId;
       updateFabActions();
+      
+      // Update semua koneksi viewer yang aktif dengan track baru
+      const videoTrack = localStream.getVideoTracks()[0];
+      const audioTrack = localStream.getAudioTracks()[0];
+      for (const [, pc] of peerConnections) {
+        const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (videoSender && videoTrack) videoSender.replaceTrack(videoTrack);
+        const audioSender = pc.getSenders().find(s => s.track?.kind === 'audio');
+        if (audioSender && audioTrack) audioSender.replaceTrack(audioTrack);
+      }
+
       togglePanel(false); // Auto-hide panel after starting
-      toast('📹 Camera started', 'success');
+      toast('📹 Stream updated', 'success');
       connectSignaling();
     } catch (err) {
       toast('❌ Camera error: ' + err.message, 'error');
