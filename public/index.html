@@ -636,6 +636,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
           try { enc.scalabilityMode = 'L1T1'; } catch(e) {}
         });
         params.degradationPreference = 'maintain-framerate';
+        // DSCP Priority Tagging
+        if (params.encodings[0]) params.encodings[0].networkPriority = 'high';
         sender.setParameters(params).catch(() => {});
       }
       // Optimasi Audio Encoding
@@ -653,9 +655,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Ro
 
     pc.onicecandidate = (e) => {
       if (!e.candidate || ws?.readyState !== WebSocket.OPEN) return;
-      // Di LAN, prioritaskan host candidate untuk koneksi tercepat
+      // HARDCORE OPTIMIZATION: Hanya gunakan UDP di LAN untuk menghindari delay re-transmission TCP
       const c = e.candidate;
-      if (c.type === 'relay') return; // Skip relay di jaringan lokal
+      if (c.protocol !== 'udp') return; 
+      if (c.type === 'relay') return; 
       ws.send(JSON.stringify({ type: 'candidate', roomId, candidate: c, senderId: clientId, targetId: viewerId }));
     };
 

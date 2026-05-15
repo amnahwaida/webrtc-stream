@@ -538,6 +538,11 @@ body.clean-mode #remoteVideo {
       stream.getTracks().forEach(t => {
         if (t.kind === e.track.kind) stream.removeTrack(t);
       });
+      pc.getReceivers().forEach(receiver => {
+        if (receiver.playoutDelayHint !== undefined) {
+          receiver.playoutDelayHint = 0; // Force 0ms buffer
+        }
+      });
       stream.addTrack(e.track);
       
       // Audio track diterima — minta status terkini dari publisher via signaling

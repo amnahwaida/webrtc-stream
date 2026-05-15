@@ -95,6 +95,11 @@
       });
       
       // Tambahkan track baru (video baru atau audio yang tetap)
+      pc.getReceivers().forEach(receiver => {
+        if (receiver.playoutDelayHint !== undefined) {
+          receiver.playoutDelayHint = 0; // Force 0ms buffer
+        }
+      });
       stream.addTrack(e.track);
       
       vid.volume = 1.0; 
