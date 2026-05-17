@@ -85,7 +85,7 @@ Buka browser (Chrome/Edge di Android/iOS sangat disarankan) ke:
 ### 2. Sisi Viewer (Penerima)
 Buka URL berikut di perangkat lain:
 - **Browser Biasa:** `http://[IP-SERVER]:3080/view`
-- **OBS Browser Source:** `http://[IP-SERVER]:3080/obs.html?room=cam1`
+- **OBS Browser Source:** `http://[IP-SERVER]:3080/obs.html?room=cam1&v=refresh`
 
 ---
 
